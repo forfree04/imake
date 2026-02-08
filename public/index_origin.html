@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+  />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>imake - Modal & Logic Fixed</title>
+
+  <!-- Fonts -->
+  <link
+    rel="stylesheet"
+    as="style"
+    crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+  />
+
+  <!-- Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <div class="iphone-mockup">
+    <header id="main-header">
+      <div class="header-left">
+        <div class="logo" onclick="location.reload()">imake</div>
+      </div>
+      <div class="header-center" onclick="openModal('qr')">
+        <i data-lucide="qr-code" style="width:18px;"></i><span>My QR</span>
+      </div>
+      <div class="header-right">
+        <button class="header-btn" onclick="openLangModal()"><i data-lucide="globe"></i></button>
+        <button class="header-btn" onclick="alert('Menu Opened')"><i data-lucide="menu"></i></button>
+      </div>
+    </header>
+
+    <div id="helpBox" class="help-system">
+      <div class="help-panel">
+        <button
+          style="width:100%; padding:16px; background:var(--primary); color:white; border:none; border-radius:14px; font-weight:bold; cursor:pointer;"
+          onclick="window.location.href='tel:1330'"
+        >📞 Call 1330 Tourism Info</button>
+
+        <div style="font-size: 11px; font-weight: 900; color: var(--primary); margin-top: 5px;">AI TRANSLATOR</div>
+        <div style="background:#f1f5f9; padding:12px; border-radius:12px; margin-bottom:10px;">
+          <textarea
+            placeholder="Type to translate..."
+            style="width:100%; border:none; background:none; outline:none; height:45px; resize:none; font-size:13px; color:var(--text);"
+          ></textarea>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 900; color: var(--primary);">TRAVEL TIPS</div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:10px;">
+          <button onclick="showTip('Dining')" style="background:white; border:1px solid var(--border); padding:10px; border-radius:10px; font-size:11px; font-weight:700; color:var(--primary);">🍴 Dining</button>
+          <button onclick="showTip('Transport')" style="background:white; border:1px solid var(--border); padding:10px; border-radius:10px; font-size:11px; font-weight:700; color:var(--primary);">🚌 Transport</button>
+          <button onclick="showTip('Stay')" style="background:white; border:1px solid var(--border); padding:10px; border-radius:10px; font-size:11px; font-weight:700; color:var(--primary);">🏨 Stay</button>
+          <button onclick="showTip('Manner')" style="background:white; border:1px solid var(--border); padding:10px; border-radius:10px; font-size:11px; font-weight:700; color:var(--primary);">😊 Manner</button>
+        </div>
+
+        <button
+          style="width:100%; padding:16px; background:var(--danger); color:white; border:none; border-radius:14px; font-weight:bold; cursor:pointer;"
+          onclick="alert('📍 SOS Sent!')"
+        >📍 My Location / SOS Send</button>
+      </div>
+
+      <div class="help-tab" onclick="document.getElementById('helpBox').classList.toggle('open')">HELP ▾</div>
+    </div>
+
+    <div id="screen-home">
+      <main id="main-content-area">
+        <div class="dashboard">
+          <div class="dash-card" onclick="openModal('todo')">
+            <span class="dash-title">TOTAL TO DO</span><span id="todoCount" class="dash-count">0</span>
+          </div>
+          <div class="dash-card" onclick="openModal('fav')">
+            <span class="dash-title">FAVORITES</span><span id="favCount" class="dash-count">0</span>
+          </div>
+          <div class="dash-card" onclick="openModal('sch')">
+            <span class="dash-title">TODAY SCH</span><span id="schCount" class="dash-count">0</span>
+          </div>
+        </div>
+
+        <div class="category-grid">
+          <div class="cat-item" onclick="filterContent('Food','#ef4444')"><i data-lucide="utensils" style="width:14px;"></i><span class="cat-name">Food</span></div>
+          <div class="cat-item" onclick="filterContent('Cafe','#f59e0b')"><i data-lucide="coffee" style="width:14px;"></i><span class="cat-name">Cafe</span></div>
+          <div class="cat-item" onclick="filterContent('Conv','#10b981')"><i data-lucide="store" style="width:14px;"></i><span class="cat-name">Conv</span></div>
+          <div class="cat-item" onclick="filterContent('Hair','#8b5cf6')"><i data-lucide="scissors" style="width:14px;"></i><span class="cat-name">Hair</span></div>
+          <div class="cat-item" onclick="filterContent('Activity','#3b82f6')"><i data-lucide="ticket" style="width:14px;"></i><span class="cat-name">Act</span></div>
+          <div class="cat-item" onclick="filterContent('Shop','#ec4899')"><i data-lucide="shopping-bag" style="width:14px;"></i><span class="cat-name">Shop</span></div>
+        </div>
+
+        <div class="map-section">
+          <div class="marker" id="m1" style="top:50px; left:120px;"></div>
+          <div style="z-index:10; background:rgba(255,255,255,0.9); padding:6px 12px; border-radius:10px; font-size:10px; font-weight:800; color:var(--primary);">Smart Guide Map</div>
+        </div>
+
+        <div id="recTitle" style="font-size: 14px; font-weight: 900; margin-bottom: 12px;">Recommended</div>
+        <div id="recScroll" class="rec-scroll"></div>
+      </main>
+
+      <nav class="bottom-nav">
+        <button class="nav-item active"><i data-lucide="home"></i><span>Home</span></button>
+        <button class="nav-item" onclick="openModal('products')"><i data-lucide="shopping-cart"></i><span>Shop</span></button>
+        <button class="nav-item" onclick="startQRScan()"><i data-lucide="scan-line"></i><span>Order</span></button>
+        <button class="nav-item" onclick="openModal('fav')"><i data-lucide="star"></i><span>Favs</span></button>
+        <button class="nav-item" onclick="openMyHistory()"><i data-lucide="user"></i><span>My</span></button>
+      </nav>
+    </div>
+
+    <div id="floatBtn" class="floating-order-btn" onclick="restoreOrderScreen()">
+      <i data-lucide="utensils" style="width:16px;"></i>
+      <span style="font-size:12px; font-weight:bold;">Table <span id="floatTableNum">--</span></span>
+    </div>
+
+    <div id="screen-table">
+      <header style="width:100%; display:flex; justify-content:space-between; align-items:center; padding:0 15px; height:60px; background:white;">
+        <button class="header-btn" onclick="minimizeOrder()"><i data-lucide="chevron-down"></i></button>
+        <span style="font-weight:bold;">imake Order</span><div style="width:30px;"></div>
+      </header>
+
+      <div style="font-size: 16px; font-weight: 700; margin: 30px 0; color: #64748b; text-align: center;">번호표의 숫자를 입력해주세요</div>
+      <div class="ticket-icon" id="ticketDisplay">--</div>
+
+      <div class="numpad">
+        <button class="num-btn" onclick="inputNum(1)">1</button><button class="num-btn" onclick="inputNum(2)">2</button><button class="num-btn" onclick="inputNum(3)">3</button>
+        <button class="num-btn" onclick="inputNum(4)">4</button><button class="num-btn" onclick="inputNum(5)">5</button><button class="num-btn" onclick="inputNum(6)">6</button>
+        <button class="num-btn" onclick="inputNum(7)">7</button><button class="num-btn" onclick="inputNum(8)">8</button><button class="num-btn" onclick="inputNum(9)">9</button>
+        <button class="num-btn" onclick="inputNum('C')" style="color:#ef4444">C</button><button class="num-btn" onclick="inputNum(0)">0</button><button class="num-btn" onclick="inputNum('BS')">←</button>
+        <button class="num-btn confirm" onclick="checkTableNum()">입력 완료</button>
+      </div>
+    </div>
+
+    <div id="screen-menu">
+      <header style="display:flex; justify-content:space-between; align-items:center; padding:0 15px; height:60px; background:white;">
+        <button class="header-btn" onclick="minimizeOrder()"><i data-lucide="home"></i></button>
+        <span>Table <span id="headerTableNum" style="color:var(--primary); font-weight: 900;"></span></span>
+        <button class="header-btn" onclick="openBillModal()"><i data-lucide="receipt"></i></button>
+      </header>
+
+      <div class="menu-list" id="orderMenuList"></div>
+
+      <div class="cart-bar">
+        <div class="total-price" style="font-weight:900;">₩ <span id="totalPrice">0</span></div>
+        <button class="order-btn" id="btnOrder" onclick="openOrderSummary()" disabled>주문하기</button>
+      </div>
+    </div>
+
+    <div id="screen-owner">
+      <h2 style="margin-bottom:20px;">🛎️ KITCHEN MONITOR</h2>
+      <div id="ownerMsg" style="margin-bottom:20px; font-size:14px; opacity:0.8;">Waiting for orders...</div>
+
+      <div id="kitchenCard" style="display:none; background:white; padding:25px; border-radius:20px; color:var(--text); width:90%; border:1px solid #eee;">
+        <div style="font-size:30px; font-weight:900; color:#ef4444; margin-bottom:10px;">TABLE <span id="kitchenTableNum"></span></div>
+        <div id="kitchenOrderList" style="text-align:left; background:#f8fafc; padding:15px; border-radius:10px; margin-bottom:15px; font-size:14px; font-weight:bold; line-height: 1.6;"></div>
+        <div style="font-size:12px; color:gray; margin-bottom:15px;" id="timerText">Elapsed: 0s</div>
+        <button style="width:100%; padding:16px; background:var(--primary); color:white; border:none; border-radius:14px; font-weight:bold; cursor:pointer;" onclick="confirmOrderKitchen()">✅ 주문 확인 (Accept)</button>
+      </div>
+    </div>
+
+    <div id="screen-waiting">
+      <div style="width: 80px; height: 80px; background: #eff6ff; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--primary); margin: 0 auto 20px; animation: pulse 1.5s infinite;">
+        <i data-lucide="send" style="width:30px;"></i>
+      </div>
+      <h3 style="margin-bottom:10px;">Sending Order...</h3>
+      <p style="color:#64748b; font-size:14px;">Waiting for confirmation</p>
+    </div>
+
+    <div id="screen-mypage">
+      <header style="display:flex; justify-content:space-between; align-items:center; background:white; padding:0 15px; height:60px;">
+        <button class="header-btn" onclick="document.getElementById('screen-mypage').style.display='none'"><i data-lucide="arrow-left"></i></button>
+        <span>History</span><div style="width:30px;"></div>
+      </header>
+
+      <div id="historyList" style="padding:10px 20px;"></div>
+
+      <button
+        style="margin:20px; width:90%; padding:16px; background:#f1f5f9; color:#64748b; border:none; border-radius:18px; font-weight:bold; cursor:pointer;"
+        onclick="location.reload()"
+      >Reset Demo</button>
+    </div>
+
+    <div id="modalOverlay" class="modal-overlay" onclick="closeModal()">
+      <div id="modalContent" class="modal-box" onclick="event.stopPropagation()"></div>
+    </div>
+  </div>
+
+  <!-- App JS -->
+  <script src="./app.js"></script>
+</body>
+</html>

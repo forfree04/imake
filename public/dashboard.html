@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>imake - Dashboard</title>
+    <script defer src="/__/firebase/11.0.2/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/11.0.2/firebase-auth-compat.js"></script>
+    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; background: #f5f5f5; }
+        header { background: #fff; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; }
+        .container { padding: 20px; }
+        /* 기획서 대시보드 박스 스타일 */
+        .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-box { background: #fff; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-box span { display: block; font-size: 20px; font-weight: bold; color: #007bff; }
+        .section-title { font-weight: bold; margin: 20px 0 10px; }
+        .list-card { background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 10px; }
+        .btn-logout { font-size: 12px; color: #999; border: none; background: none; }
+    </style>
+</head>
+<body>
+    <header>
+        <strong id="user-name">Loading...</strong>
+        <button class="btn-logout" onclick="firebase.auth().signOut()">로그아웃</button>
+    </header>
+
+    <div class="container">
+        <div class="stats">
+            <div class="stat-box">To-do<span id="todo-count">0</span></div>
+            <div class="stat-box">Favs<span id="fav-count">0</span></div>
+            <div class="stat-box">Today<span id="today-count">0</span></div>
+        </div>
+
+        <div class="list-card">
+            <strong>💰 절약한 금액: 5,400원</strong>
+        </div>
+
+        <div class="section-title">오늘의 일정</div>
+        <div class="list-card">📍 제주 맛집 본점 방문 (14:00)</div>
+        <div class="list-card">📍 카페 에메랄드 (16:30)</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            firebase.auth().onAuthStateChanged((user) => {
+                if (!user) {
+                    // 로그인이 안 되어 있으면 로그인 페이지로 튕겨냄
+                    window.location.href = "index.html";
+                } else {
+                    document.getElementById('user-name').innerText = user.displayName + "님의 비서";
+                }
+            });
+        });
+    </script>
+</body>
+</html>

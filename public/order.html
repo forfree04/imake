@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>imake - 테이블 주문</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; margin: 0; padding: 20px; text-align: center; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .wifi-info { background: #f0f7ff; padding: 10px; border-radius: 8px; font-size: 13px; color: #007bff; margin-bottom: 20px; }
+        .display-area { font-size: 48px; font-weight: 800; color: #007bff; margin: 30px 0; border-bottom: 3px solid #007bff; display: inline-block; min-width: 80px; }
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; max-width: 320px; margin: 0 auto; }
+        .key { background: #f8f9fa; padding: 20px; border-radius: 12px; font-size: 24px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .key:active { background: #e9ecef; transform: scale(0.95); }
+        .btn-confirm { width: 100%; max-width: 320px; background: #007bff; color: white; border: none; padding: 18px; border-radius: 15px; font-size: 18px; font-weight: bold; margin-top: 30px; }
+        /* 명세서 반영: 1 day free 홍보 배너 */
+        .promo-banner { background: #fff3cd; padding: 15px; border-radius: 12px; font-size: 14px; margin-top: 40px; border: 1px dashed #ffeeba; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <strong>imake</strong>
+        <span style="font-size: 12px; color: #666;">한국어 | ENG</span>
+    </div>
+
+    <div class="wifi-info">
+        📶 매장 WIFI: <b>IMAKE_FREE</b> / PW: <b>welcome123</b> <span style="cursor:pointer" onclick="alert('복사되었습니다!')">📋</span>
+    </div>
+
+    <h3>번호표의 숫자를 눌러주세요 [cite: 26]</h3>
+    <div class="display-area" id="tableNum">-</div>
+
+    <div class="keypad">
+        <div class="key" onclick="add(1)">1</div><div class="key" onclick="add(2)">2</div><div class="key" onclick="add(3)">3</div>
+        <div class="key" onclick="add(4)">4</div><div class="key" onclick="add(5)">5</div><div class="key" onclick="add(6)">6</div>
+        <div class="key" onclick="add(7)">7</div><div class="key" onclick="add(8)">8</div><div class="key" onclick="add(9)">9</div>
+        <div class="key" onclick="reset()">C</div><div class="key" onclick="add(0)">0</div><div class="key" onclick="back()">←</div>
+    </div>
+
+    <button class="btn-confirm" onclick="goMenu()">확인 [cite: 27]</button>
+
+    <div class="promo-banner">
+        🎉 <b>멤버십 가입 시 무제한 5% 할인!</b><br>
+        지금 앱을 설치하고 <b>1 Day Free</b>로 즐겨보세요.
+    </div>
+
+    <script>
+        let num = "";
+        function add(n) { num += n; update(); }
+        function reset() { num = ""; update(); }
+        function back() { num = num.slice(0, -1); update(); }
+        function update() { document.getElementById('tableNum').innerText = num || "-"; }
+        function goMenu() {
+            if(!num) return alert("번호표 숫자를 입력해주세요.");
+            if(confirm(`입력하신 번호 ${num}번이 맞나요? [cite: 27]`)) {
+                // 다음 단계: 메뉴 리스트 페이지로 이동
+                location.href = "menu_list.html?table=" + num;
+            }
+        }
+    </script>
+</body>
+</html>
