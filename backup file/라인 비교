@@ -1,0 +1,321 @@
+/* ==========================================================
+   [1] 전역 데이터 및 초기화
+   ========================================================== */
+if (typeof lucide !== 'undefined') lucide.createIcons();
+
+let todoList = [];
+let favList = [];
+let schedList = [];
+let recData = []; // 추천 데이터 저장소
+
+let currentEditType = null;
+let currentEditId = null;
+
+let map = null;       // 지도 객체
+let markers = [];     // 지도 마커 배열
+
+// 페이지 로드 시 실행
+window.onload = function() {
+    console.log("🚀 앱 시작! (통합 로딩)");
+    
+    // 1. 페이지 초기화 (홈 화면으로)
+    if(typeof navigateTo === 'function') navigateTo('home');
+
+    // 2. DB 리스너 연결 (데이터 감시)
+    initRealtimeListeners();
+
+    // 3. 지도 초기화
+    setTimeout(() => {
+        initMap(); 
+    }, 100);
+};
+
+/* ==========================================================
+   [2] Firestore 실시간 동기화 (spots 이름표 확인됨)
+   ========================================================== */
+function initRealtimeListeners() {
+    if (!window.db) {
+        console.error("❌ DB 연결 실패: window.db가 없습니다.");
+        return;
+    }
+
+    // 1. To-Do List
+    window.onSnapshot(window.collection(window.db, "todos"), (snapshot) => {
+        todoList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderTodoList();
+        updateCounts();
+    });
+
+    // 2. Schedule List
+    window.onSnapshot(window.collection(window.db, "schedules"), (snapshot) => {
+        schedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderSchedList();
+        updateCounts();
+    });
+
+    // 3. Favorites List
+    window.onSnapshot(window.collection(window.db, "favorites"), (snapshot) => {
+        favList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderFavList();
+        updateCounts();
+    });
+
+    // 4. 추천 맛집 (컬렉션 이름 'spots'로 통일)
+    window.onSnapshot(window.collection(window.db, "spots"), (snapshot) => {
+        recData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`✅ 맛집 데이터 수신: ${recData.length}개`);
+        
+        renderRecList('all');
+        updateMapMarkers('all');
+    });
+}
+
+function updateCounts() {
+    const t = document.getElementById('count-todo');
+    const f = document.getElementById('count-fav');
+    const s = document.getElementById('count-sched');
+    if(t) t.innerText = todoList.filter(i => !i.checked).length;
+    if(f) f.innerText = favList.length;
+    if(s) s.innerText = schedList.filter(i => !i.checked).length;
+}
+
+/* ==========================================================
+   [3] 데이터 추가/수정/삭제 로직 (기존 동일)
+   ========================================================== */
+async function addNewTodo() {
+    const input = document.getElementById('new-todo-title');
+    const title = input.value.trim();
+    if (!title) return alert("내용을 입력하세요.");
+    try {
+        await window.addDoc(window.collection(window.db, "todos"), {
+            title, date: "", time: "", checked: false, created: Date.now()
+        });
+        input.value = "";
+    } catch (e) { console.error(e); }
+}
+
+async function deleteItem(collectionName, id) {
+    if (!confirm("정말 삭제하시겠습니까?")) return;
+    try { await window.deleteDoc(window.doc(window.db, collectionName, id)); } 
+    catch (e) { console.error(e); }
+}
+
+async function toggleItem(collectionName, id, currentStatus) {
+    try { await window.updateDoc(window.doc(window.db, collectionName, id), { checked: !currentStatus }); } 
+    catch (e) { console.error(e); }
+}
+
+async function toggleSched(id) {
+    const item = schedList.find(i => i.id === id);
+    if (!item) return;
+    if (item.checked) {
+        if (confirm("To Do List로 되돌릴까요?")) {
+            await window.addDoc(window.collection(window.db, "todos"), {
+                title: item.title, date: new Date().toISOString().split('T')[0],
+                time: item.time, checked: false, created: Date.now()
+            });
+            await window.deleteDoc(window.doc(window.db, "schedules", id));
+        } else { toggleItem("schedules", id, true); }
+    } else { toggleItem("schedules", id, false); }
+}
+
+/* ==========================================================
+   [4] UI 렌더링 (맛집 리스트 포함)
+   ========================================================== */
+function renderTodoList() {
+    const list = document.getElementById('list-todo');
+    if (!list) return;
+    const sorted = [...todoList].sort((a,b) => (a.checked - b.checked) || b.created - a.created);
+    list.innerHTML = sorted.map(item => `
+        <div class="list-item ${item.checked ? 'checked' : ''}">
+            <div class="list-check" onclick="toggleItem('todos', '${item.id}', ${item.checked})"><i data-lucide="check"></i></div>
+            <div class="list-content" onclick="openEditPopup('todo', '${item.id}')">
+                <div class="item-title">${item.title}</div>
+                <div class="item-sub">${item.date || ''} ${item.time || ''}</div>
+            </div>
+            <button class="action-btn delete" onclick="deleteItem('todos', '${item.id}')"><i data-lucide="trash-2"></i></button>
+        </div>
+    `).join('');
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function renderSchedList() {
+    const list = document.getElementById('list-sched');
+    if (!list) return;
+    const now = new Date().toTimeString().substring(0,5);
+    const sorted = [...schedList].sort((a,b) => (a.checked - b.checked) || a.time.localeCompare(b.time));
+    list.innerHTML = sorted.map(item => `
+        <div class="list-item ${item.checked ? 'checked' : ''} ${!item.checked && item.time < now ? 'past' : ''}">
+            <div class="list-check" onclick="toggleSched('${item.id}')"><i data-lucide="check"></i></div>
+            <div class="list-content" onclick="openEditPopup('sched', '${item.id}')">
+                <div class="item-title">${item.title}</div>
+                <div class="item-sub">⏰ ${item.time}</div>
+            </div>
+            <button class="action-btn delete" onclick="deleteItem('schedules', '${item.id}')"><i data-lucide="trash-2"></i></button>
+        </div>
+    `).join('');
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function renderFavList() {
+    const list = document.getElementById('list-fav');
+    if (!list) return;
+    if (favList.length === 0) list.innerHTML = "<div style='text-align:center;color:#888;'>비어있음</div>";
+    else {
+        list.innerHTML = favList.map(item => `
+            <div class="list-item">
+                <div class="list-content">
+                    <div class="item-title">${item.title}</div>
+                    <div class="item-sub">${item.desc || ''}</div>
+                </div>
+                <button class="action-btn delete" onclick="deleteItem('favorites', '${item.id}')"><i data-lucide="trash-2"></i></button>
+            </div>
+        `).join('');
+    }
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// 맛집 리스트 그리기 (연동 완료)
+function renderRecList(category) {
+    const list = document.getElementById('rec-list-container');
+    if (!list) return; 
+
+    const filtered = (category === 'all' || !category) 
+        ? recData 
+        : recData.filter(item => item.cat === category);
+
+    list.innerHTML = filtered.map(item => `
+        <div class="list-item" onclick="moveToMap('${item.title}', ${item.lat}, ${item.lng})">
+            <div class="img-box" style="width: 80px; height: 80px; border-radius: 12px; overflow: hidden; margin-right: 15px; flex-shrink: 0;">
+                <img src="${item.img || 'https://via.placeholder.com/80'}" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div class="list-content">
+                <div class="item-title" style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">
+                    ${item.title} 
+                    <span style="color: ${item.status === 'red' ? '#ff4d4f' : item.status === 'yellow' ? '#faad14' : '#52c41a'};">●</span>
+                </div>
+                <div class="item-desc" style="font-size: 13px; color: #666; margin-bottom: 4px;">${item.desc || ''}</div>
+                <div class="item-tags">
+                    ${(item.tags || []).map(t => `<span class="tag" style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; margin-right:4px;">#${t}</span>`).join('')}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+/* ==========================================================
+   [5] 지도 연동 핵심 기능
+   ========================================================== */
+function initMap() {
+    const mapContainer = document.getElementById('map');
+    if (!mapContainer || map !== null) return;
+
+    map = L.map('map').setView([37.5665, 126.9780], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    updateMapMarkers('all');
+}
+
+function updateMapMarkers(category) {
+    if (!map) return;
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    const filtered = (category === 'all' || !category) 
+        ? recData 
+        : recData.filter(item => item.cat === category);
+
+    filtered.forEach(item => {
+        if (item.lat && item.lng) {
+            const marker = L.marker([item.lat, item.lng]).addTo(map);
+            marker.bindPopup(`<b>${item.title}</b><br>${item.desc || ''}`);
+            markers.push(marker);
+        }
+    });
+}
+
+function moveToMap(title, lat, lng) {
+    if (!map) return;
+    map.flyTo([lat, lng], 17, { animate: true, duration: 1.5 });
+    markers.forEach(m => {
+        const p = m.getLatLng();
+        if (Math.abs(p.lat - lat) < 0.0001) m.openPopup();
+    });
+}
+
+function filterCategory(category) {
+    document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.cat-btn[onclick*="'${category}'"]`);
+    if(activeBtn) activeBtn.classList.add('active');
+
+    renderRecList(category);
+    updateMapMarkers(category);
+}
+
+/* ==========================================================
+   [6] UI 제어 (팝업, 메뉴, 헬프탭)
+   ========================================================== */
+function toggleHelp() {
+    document.querySelector('.help-container')?.classList.toggle('open');
+}
+
+function navigateTo(pageId) {
+    closeSideMenu();
+    document.querySelectorAll('.page').forEach(p => {
+        p.style.display = 'none';
+        p.classList.remove('active');
+    });
+    const target = document.getElementById('page-' + pageId);
+    if (target) {
+        target.style.display = 'block';
+        target.classList.add('active');
+        updateBottomNav(pageId);
+        if (pageId === 'map' && map) setTimeout(() => map.invalidateSize(), 100);
+    }
+}
+
+function updateBottomNav(activePage) {
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.nav-item[onclick*="'${activePage}'"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+}
+
+function openSideMenu() {
+    document.getElementById('side-menu')?.classList.add('open');
+    document.getElementById('side-menu-overlay')?.classList.add('open');
+}
+
+function closeSideMenu() {
+    document.getElementById('side-menu')?.classList.remove('open');
+    document.getElementById('side-menu-overlay')?.classList.remove('open');
+}
+
+// 배경 클릭 시 닫기
+window.onclick = function(event) {
+    const modals = ['qr-modal', 'lang-modal', 'modal-todo', 'modal-fav', 'modal-sched', 'modal-edit-popup'];
+    modals.forEach(id => {
+        const m = document.getElementById(id);
+        if (m && event.target === m) m.style.display = "none";
+    });
+    const overlay = document.getElementById('side-menu-overlay');
+    if (overlay && event.target === overlay) closeSideMenu();
+}
+
+// 기타 팝업 함수들
+function openQRModal() { document.getElementById('qr-modal').style.display = 'flex'; }
+function closeQRModal() { document.getElementById('qr-modal').style.display = 'none'; }
+function openLangModal() { document.getElementById('lang-modal').style.display = 'flex'; }
+function closeLangModal() { document.getElementById('lang-modal').style.display = 'none'; }
+function openTodoModal() { renderTodoList(); openModal('modal-todo'); }
+function openFavModal() { renderFavList(); openModal('modal-fav'); }
+function openScheduleModal() { renderSchedList(); openModal('modal-sched'); }
+function openModal(id) { document.getElementById(id).style.display='flex'; }
+function closeModal(id) { document.getElementById(id).style.display='none'; }
+function closeEditPopup() { document.getElementById('modal-edit-popup').style.display = 'none'; }
+
+// 편의상 래퍼 함수들
+window.deleteTodo = (id) => deleteItem('todos', id);
+window.deleteSched = (id) => deleteItem('schedules', id);
+window.deleteFav = (id) => deleteItem('favorites', id);

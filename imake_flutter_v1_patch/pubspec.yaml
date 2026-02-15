@@ -1,0 +1,27 @@
+name: imake_proto
+description: imake prototype (Flutter)
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.2
+  shared_preferences: ^2.3.2
+
+flutter:
+  uses-material-design: true
+
+  # Pretendard font (optional):
+  # 1) Put Pretendard .ttf files into assets/fonts/
+  # 2) Uncomment below
+  #
+  # fonts:
+  #   - family: Pretendard
+  #     fonts:
+  #       - asset: assets/fonts/Pretendard-Regular.ttf
+  #       - asset: assets/fonts/Pretendard-Bold.ttf
+  #         weight: 700

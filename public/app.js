@@ -3,7 +3,7 @@
 /**
  * imake UI Prototype (Firebase Hosting friendly)
  * - SPA routing (history API)
- * - Offline QR landing simulation: /?mode=entrance|menu&pid=...&app=0|1
+ * - App-only: landing/QR entry routing disabled (focus on core app UI)
  * - Core: Header + Help panel + Home dashboard + Modals (ToDo/Fav/Schedule) + Saved/Weather stubs
  *
  * 주의: 결제/회원/QR그룹은 프로토타입용 UI/로직 스텁 포함(백엔드 연동 필요).
@@ -18,6 +18,21 @@ const today = () => nowISO().slice(0,10);
 function fmtKRW(n){
   const v = Math.max(0, Math.floor(Number(n||0)));
   return v.toLocaleString('ko-KR');
+}
+
+function toast(msg){
+  const id = 'imakeToast';
+  let el = document.getElementById(id);
+  if (!el){
+    el = document.createElement('div');
+    el.id = id;
+    el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=> el.classList.remove('show'), 1200);
 }
 
 function safeJSONParse(s, fallback){
@@ -68,12 +83,21 @@ const defaultState = {
   schedule: [
     // {id, title, date, time, done}
   ],
+  order: {
+    partnerId: 'STORE001',
+    table: '',
+    cart: {},          // { [menuId]: qty }
+    confirmed: []      // [{name, qty, unit, total}]
+  },
   history: [],
   savedTotal: 0,
   weather: { city: 'Seoul', tempC: 3, icon: '⛅', updatedAt: nowISO() } // stub
 };
 
 let state = loadState();
+
+// 이벤트 중복 바인딩 방지(렌더가 여러 번 호출되므로 1회만 등록)
+let _escHandlerBound = false;
 
 function loadState(){
   const raw = localStorage.getItem(LS_KEY);
@@ -155,24 +179,27 @@ window.addEventListener('popstate', render);
 const appRoot = document.getElementById('app');
 
 function render(){
-  const { search } = parseURL();
-
-  // QR 랜딩 모드 우선 처리: /?mode=entrance|menu&pid=...&app=0|1
-  const mode = search.get('mode');
-  const pid = search.get('pid');
-  const appFlag = search.get('app'); // 1=앱 설치자(딥링크/앱 내), 0=웹
-  const isApp = appFlag === '1';
-
-  if (mode && pid){
-    if (mode === 'entrance') return renderLandingEntrance(pid, isApp);
-    if (mode === 'menu') return renderLandingMenu(pid, isApp);
-  }
-
-  // 기본: 홈 SPA
+  // App-only build (Landing disabled)
+  // - 랜딩/QR 진입(mode, pid, app) 로직은 일단 제외합니다.
+  // - 모든 진입을 홈 SPA로 통일하여 UI/상태 로직 꼬임을 원천 차단합니다.
+  const path = location.pathname || '/';
+  if (path === '/order') return renderOrder();
   return renderHome();
 }
 
 /* ---------- UI: Shared Header + Help ---------- */
+function closeHelpUI(){
+  const helpDrawer = document.getElementById('helpDrawer');
+  const helpBackdrop = document.getElementById('helpBackdrop');
+  const helpBtn = document.getElementById('helpTabBtn');
+  const frame = document.querySelector('.frame');
+  if (!helpDrawer) return;
+  helpDrawer.classList.remove('open');
+  helpBackdrop?.classList.remove('show');
+  frame?.classList.remove('help-open');
+  if (helpBtn) helpBtn.textContent = 'HELP ▾';
+}
+
 function headerHTML(){
   const groupSize = Math.max(1, Number(state.qrGroup?.size || 1));
   const qrLabel = groupSize > 1 ? `My QR × ${groupSize}` : 'My QR';
@@ -190,45 +217,52 @@ function headerHTML(){
         <button class="icon-btn" id="btnLang" aria-label="Language"><i data-lucide="globe"></i></button>
         <button class="icon-btn" id="btnLogin" aria-label="Login"><i data-lucide="${state.isLoggedIn ? 'user-check' : 'log-in'}"></i></button>
         <button class="icon-btn" id="btnMenu" aria-label="Menu"><i data-lucide="menu"></i></button>
-      </div>
-    </div>
+      </div>    </div>
 
-    <div class="help-system" id="helpBox">
-      <div class="help-panel">
-        <button class="btn primary" id="call1330">📞 1330 관광통역안내</button>
-        <div class="small muted">ⓘ 정부기관 운영 실시간 통역서비스 24h / 이용료 무료 / 통화료 별도</div>
+    <!-- HELP backdrop (dim + outside click close) -->
+    <div class="help-backdrop" id="helpBackdrop" aria-hidden="true"></div>
 
-        <div class="section-title">EMBASSY (가입 국가 기반: 스텁)</div>
-        <div class="card" style="padding:10px">
-          <div style="font-weight:900">Embassy of (TBD)</div>
-          <div class="small muted">Phone: (TBD) / Address: (TBD)</div>
+    <!-- HELP: overlay 슬라이드 (body를 밀지 않고 덮음 / header는 항상 위) -->
+    <div class="help-drawer" id="helpDrawer" aria-label="Help Drawer">
+      <div class="help-panel" aria-label="Help Panel">
+        <div class="help-panel-inner">
+          <button class="btn primary" id="call1330">📞 1330 관광통역안내</button>
+          <div class="small muted">ⓘ 정부기관 운영 실시간 통역서비스 24h / 이용료 무료 / 통화료 별도</div>
+
+          <div class="section-title">EMBASSY (가입 국가기반: 스텁)</div>
+          <div class="card" style="padding:10px">
+            <div style="font-weight:900">Embassy of (TBD)</div>
+            <div class="small muted">Phone: (TBD) / Address: (TBD)</div>
+          </div>
+
+          <div class="section-title">MY LOCATION</div>
+          <div class="row">
+            <button class="btn ghost small" id="btnLocCopy">복사</button>
+            <button class="btn ghost small" id="btnLocSend">전송</button>
+          </div>
+          <div class="small muted">ⓘ 내 위치 정보 텍스트를 복사/전송(지정 번호)합니다.</div>
+
+          <div class="section-title">TRANSLATOR (TBD)</div>
+          <textarea class="input" rows="2" placeholder="Type to translate... (prototype only)"></textarea>
+
+          <button class="btn danger" id="btnSOS">📍 SOS 전송(프로토타입)</button>
         </div>
-
-        <div class="section-title">MY LOCATION</div>
-        <div class="row">
-          <button class="btn ghost small" id="btnLocCopy">복사</button>
-          <button class="btn ghost small" id="btnLocSend">전송</button>
-        </div>
-        <div class="small muted">ⓘ 내 위치 정보 텍스트를 복사/전송(지정 번호)합니다.</div>
-
-        <div class="section-title">TRANSLATOR (TBD)</div>
-        <textarea class="input" rows="2" placeholder="Type to translate... (prototype only)"></textarea>
-
-        <button class="btn danger" id="btnSOS">📍 SOS 전송(프로토타입)</button>
       </div>
-      <div class="help-tab" id="helpTab">HELP ▾</div>
+
+      <button class="help-tab-btn" id="helpTabBtn">HELP ▾</button>
     </div>
   `;
 }
 
 function bindHeader(){
+
   $('#goHome').onclick = ()=> nav('/');
   $('#openQR').onclick = ()=> openQRModal();
   $('#btnLang').onclick = ()=> openLangModal();
   $('#btnLogin').onclick = ()=> openLoginModal();
   $('#btnMenu').onclick = ()=> openMenuModal();
 
-  $('#helpTab').onclick = ()=> $('#helpBox').classList.toggle('open');
+
   $('#call1330').onclick = ()=> (location.href = 'tel:1330');
 
   $('#btnLocCopy').onclick = async ()=> {
@@ -239,6 +273,37 @@ function bindHeader(){
   };
   $('#btnLocSend').onclick = ()=> openModal({ title:'전송', bodyHTML:`<p class="muted">지정 번호 전송은 백엔드/권한 설정 필요(TBD)</p>` });
   $('#btnSOS').onclick = ()=> openModal({ title:'SOS', bodyHTML:`<p class="muted">프로토타입: SOS 이벤트가 기록되었습니다.</p>` });
+  // HELP overlay toggle + backdrop + scroll lock
+  const helpDrawer = $('#helpDrawer');
+  const helpBtn = $('#helpTabBtn');
+  const helpBackdrop = $('#helpBackdrop');
+  const frame = document.querySelector('.frame');
+
+  const openHelp = ()=>{
+    helpDrawer?.classList.add('open');
+    helpBackdrop?.classList.add('show');
+    frame?.classList.add('help-open');
+    if (helpBtn) helpBtn.textContent = 'HELP ▴';
+  };
+
+  if (helpBtn && helpDrawer){
+    helpBtn.onclick = ()=>{
+      const isOpen = helpDrawer.classList.contains('open');
+      if (isOpen) closeHelpUI(); else openHelp();
+    };
+  }
+
+  // Outside click closes
+  helpBackdrop?.addEventListener('click', closeHelpUI);
+
+  // ESC closes (desktop convenience) — 1회만 등록
+  if (!_escHandlerBound){
+    document.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape') closeHelpUI();
+    });
+    _escHandlerBound = true;
+  }
+  
 }
 
 /* ---------- Home ---------- */
@@ -317,6 +382,405 @@ function renderHome(){
   renderRecs('Activity');
 }
 
+
+/* ---------- Order (QR Menu) ---------- */
+
+let orderDraftTable = '';
+
+function getOrderPartner(){
+  const id = state.order?.partnerId || 'STORE001';
+  return partnerDB[id] ? { id, ...partnerDB[id] } : { id:'STORE001', ...partnerDB['STORE001'] };
+}
+
+function renderOrder(){
+  const p = getOrderPartner();
+
+  // initialize draft
+  if (!state.order.table) orderDraftTable = orderDraftTable || '';
+  const hasTable = Boolean(state.order.table);
+
+  appRoot.innerHTML = `
+    ${headerHTML()}
+    <div class="content order" id="content">
+      <div class="order-top card">
+        <div class="row between">
+          <div>
+            <div class="small muted">QR 메뉴판 (Prototype)</div>
+            <div style="font-size:16px;font-weight:900;margin-top:2px">${escapeHTML(p.name)}</div>
+            <div class="small muted" style="margin-top:4px">제휴 5% 할인 적용 (시뮬레이션)</div>
+          </div>
+          <button class="btn ghost small" id="btnSimScan"><i data-lucide="scan-line" style="width:16px"></i> Scan</button>
+        </div>
+
+        ${p.wifi ? `
+          <div class="wifi-card">
+            <div class="wifi-row">
+              <div>
+                <div class="small muted">WIFI SSID</div>
+                <div class="wifi-val" id="wifiSsid">${escapeHTML(p.wifi.ssid)}</div>
+              </div>
+              <button class="btn ghost small" id="btnCopySsid">복사</button>
+            </div>
+            <div class="wifi-row">
+              <div>
+                <div class="small muted">WIFI PASS</div>
+                <div class="wifi-val" id="wifiPass">${escapeHTML(p.wifi.pass)}</div>
+              </div>
+              <button class="btn ghost small" id="btnCopyPass">복사</button>
+            </div>
+          </div>
+        ` : `
+          <div class="small muted" style="margin-top:10px">WIFI 정보 없음</div>
+        `}
+      </div>
+
+      ${hasTable ? orderMenuHTML(p) : orderTableHTML()}
+      <div style="height:10px"></div>
+      <button class="btn ghost" id="btnResetOrder">테이블 초기화</button>
+    </div>
+
+    ${bottomNavHTML('order')}
+  `;
+
+  setIcon();
+  bindHeader();
+  bindBottomNav('order');
+  bindOrder(p);
+}
+
+function orderTableHTML(){
+  const display = orderDraftTable || '--';
+  return `
+    <div class="card">
+      <div style="font-weight:900;margin-bottom:10px">테이블 번호 입력</div>
+      <div class="small muted" style="margin-bottom:12px">번호표/테이블 번호를 입력하세요 (최대 2자리)</div>
+      <div class="ticket" id="ticketDisplay">${display}</div>
+
+      <div class="numpad" id="numpad">
+        ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="num-btn" data-num="${n}">${n}</button>`).join('')}
+        <button class="num-btn danger" data-act="C">C</button>
+        <button class="num-btn" data-num="0">0</button>
+        <button class="num-btn" data-act="BS">←</button>
+      </div>
+
+      <button class="btn primary" id="btnConfirmTable" style="width:100%;margin-top:12px">입력 완료</button>
+    </div>
+  `;
+}
+
+function orderMenuHTML(p){
+  const menu = p.menu || [];
+  return `
+    <div class="card">
+      <div class="row between" style="align-items:flex-end">
+        <div>
+          <div class="small muted">Table</div>
+          <div style="font-size:18px;font-weight:900;color:var(--primary)">${escapeHTML(state.order.table)}</div>
+        </div>
+        <button class="btn ghost small" id="btnBill"><i data-lucide="receipt" style="width:16px"></i> Bill</button>
+      </div>
+      <div class="hr" style="margin:12px 0"></div>
+
+      <div class="menu-list" id="menuList">
+        ${menu.map(item=>{
+          const oldP = Number(item.price||0);
+          const newP = Math.floor(oldP*0.95);
+          const qty = Number(state.order.cart?.[item.id] || 0);
+          return `
+            <div class="menu-item">
+              <img class="menu-img" src="${item.img}" alt="">
+              <div class="menu-info">
+                <div style="font-weight:900">${escapeHTML(item.name)}</div>
+                <div class="prices">
+                  <span class="old">₩ ${fmtKRW(oldP)}</span>
+                  <span class="new">₩ ${fmtKRW(newP)}</span>
+                  <span class="disc">-5%</span>
+                </div>
+                <div class="qty">
+                  <button class="qty-btn" data-qty="-1" data-id="${item.id}">-</button>
+                  <span class="qty-n" id="qty-${item.id}">${qty}</span>
+                  <button class="qty-btn" data-qty="1" data-id="${item.id}">+</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="cart-bar">
+        <div class="total">₩ <span id="orderTotal">0</span></div>
+        <button class="btn primary" id="btnOrder" disabled>주문하기</button>
+      </div>
+    </div>
+  `;
+}
+
+function bindOrder(p){
+  // simulate scan: choose partner
+  $('#btnSimScan')?.addEventListener('click', ()=>{
+    const options = Object.entries(partnerDB).map(([id,v])=>`
+      <button class="list-btn" data-pid="${id}">
+        <div style="font-weight:900">${escapeHTML(v.name)}</div>
+        <div class="small muted">${escapeHTML(v.type)}</div>
+      </button>
+    `).join('');
+
+    openModal({
+      title:'Simulate QR Scan',
+      bodyHTML:`<p class="muted" style="margin-top:0">파트너를 선택하면 메뉴판이 바뀝니다(프로토타입).</p><div class="list">${options}</div>`
+    });
+    setIcon();
+    $$('#modalBox .list-btn').forEach(btn=>{
+      btn.onclick = ()=>{
+        const id = btn.getAttribute('data-pid');
+        state.order.partnerId = id;
+        state.order.table = '';
+        state.order.cart = {};
+        state.order.confirmed = [];
+        orderDraftTable = '';
+        saveState();
+        closeModal();
+        nav('/order');
+      };
+    });
+  });
+
+  // wifi copy
+  $('#btnCopySsid')?.addEventListener('click', ()=> copyText($('#wifiSsid')?.textContent || ''));
+  $('#btnCopyPass')?.addEventListener('click', ()=> copyText($('#wifiPass')?.textContent || ''));
+
+  // reset table
+  $('#btnResetOrder')?.addEventListener('click', ()=>{
+    state.order.table = '';
+    state.order.cart = {};
+    saveState();
+    orderDraftTable = '';
+    nav('/order');
+  });
+
+  // table step
+  if (!state.order.table){
+    $$('#numpad .num-btn').forEach(b=>{
+      b.onclick = ()=>{
+        const act = b.getAttribute('data-act');
+        const num = b.getAttribute('data-num');
+        if (act === 'C') orderDraftTable = '';
+        else if (act === 'BS') orderDraftTable = orderDraftTable.slice(0, -1);
+        else if (num){
+          if (orderDraftTable.length < 2) orderDraftTable += num;
+        }
+        $('#ticketDisplay').textContent = orderDraftTable || '--';
+      };
+    });
+
+    $('#btnConfirmTable')?.addEventListener('click', ()=>{
+      if (!orderDraftTable) return;
+      openModal({
+        title:'테이블 확인',
+        bodyHTML:`
+          <div style="text-align:center">
+            <div class="small muted">입력하신 번호가 맞나요?</div>
+            <div style="font-size:52px;font-weight:900;color:var(--primary);margin:18px 0">${escapeHTML(orderDraftTable)}</div>
+            <div class="modal-actions">
+              <button class="btn ghost" id="btnEditTable">수정</button>
+              <button class="btn primary" id="btnOkTable">OK</button>
+            </div>
+          </div>
+        `
+      });
+      setIcon();
+      $('#btnEditTable')?.addEventListener('click', ()=> closeModal());
+      $('#btnOkTable')?.addEventListener('click', ()=>{
+        state.order.table = orderDraftTable;
+        saveState();
+        closeModal();
+        nav('/order');
+      });
+    });
+
+    return;
+  }
+
+  // menu step
+  // qty buttons
+  $$('#menuList .qty-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = Number(btn.getAttribute('data-id'));
+      const chg = Number(btn.getAttribute('data-qty'));
+      const cur = Number(state.order.cart?.[id] || 0);
+      const next = Math.max(0, cur + chg);
+      state.order.cart[id] = next;
+      saveState();
+      $('#qty-'+id).textContent = String(next);
+      calcOrderTotal(p);
+    };
+  });
+
+  $('#btnBill')?.addEventListener('click', ()=> openOrderBill(p));
+  $('#btnOrder')?.addEventListener('click', ()=> openOrderSummary(p));
+
+  calcOrderTotal(p);
+}
+
+function calcOrderTotal(p){
+  const menu = p.menu || [];
+  let total = 0;
+  let count = 0;
+  for (const item of menu){
+    const qty = Number(state.order.cart?.[item.id] || 0);
+    if (!qty) continue;
+    const newP = Math.floor(Number(item.price||0)*0.95);
+    total += newP * qty;
+    count += qty;
+  }
+  $('#orderTotal').textContent = fmtKRW(total);
+  const btn = $('#btnOrder');
+  if (btn) btn.disabled = (count === 0);
+  return { total, count };
+}
+
+function openOrderSummary(p){
+  const menu = p.menu || [];
+  let rows = '';
+  let total = 0;
+  let saved = 0;
+
+  for (const item of menu){
+    const qty = Number(state.order.cart?.[item.id] || 0);
+    if (!qty) continue;
+    const oldP = Number(item.price||0);
+    const newP = Math.floor(oldP*0.95);
+    rows += `<div class="bill-row"><span>${escapeHTML(item.name)} x ${qty}</span><span>₩ ${fmtKRW(newP*qty)}</span></div>`;
+    total += newP*qty;
+    saved += Math.max(0, (oldP - newP) * qty);
+  }
+
+  openModal({
+    title:'Confirm Order',
+    bodyHTML:`
+      <div class="bill">
+        ${rows || `<p class="muted">선택된 메뉴가 없습니다.</p>`}
+        <div class="bill-total"><span>Total</span><span style="color:var(--danger)">₩ ${fmtKRW(total)}</span></div>
+        <div class="small muted" style="margin-top:8px">Saved (5%): ₩ ${fmtKRW(saved)}</div>
+        <div class="modal-actions">
+          <button class="btn ghost" id="btnEditOrder">수정</button>
+          <button class="btn primary" id="btnSubmitOrder">Submit</button>
+        </div>
+      </div>
+    `
+  });
+
+  $('#btnEditOrder')?.addEventListener('click', ()=> closeModal());
+  $('#btnSubmitOrder')?.addEventListener('click', ()=>{
+    // move to confirmed
+    state.order.confirmed ||= [];
+    for (const item of menu){
+      const qty = Number(state.order.cart?.[item.id] || 0);
+      if (!qty) continue;
+      const newP = Math.floor(Number(item.price||0)*0.95);
+      state.order.confirmed.push({ name:item.name, qty, unit:newP, total:newP*qty });
+    }
+
+    // accumulate saved
+    state.savedTotal = Number(state.savedTotal||0) + Number(saved||0);
+
+    // clear cart (keep table for additional orders)
+    state.order.cart = {};
+    saveState();
+    closeModal();
+
+    // quick success
+    openModal({
+      title:'Success',
+      bodyHTML:`<div style="text-align:center"><div style="font-size:18px;font-weight:900;margin-top:4px">Order Accepted!</div><p class="muted">Preparing your food.</p></div>`
+    });
+
+    // add history entry (order submitted)
+    state.history.unshift({
+      at: nowISO(),
+      title: `Order submitted (Table ${state.order.table})`,
+      meta: `${p.name} / Total ₩ ${fmtKRW(total)} / Saved ₩ ${fmtKRW(saved)}`
+    });
+    saveState();
+
+    setTimeout(()=>{ closeModal(); nav('/order'); }, 900);
+  });
+
+  setIcon();
+}
+
+function openOrderBill(p){
+  const confirmed = state.order.confirmed || [];
+  const menu = p.menu || [];
+
+  let gt = 0;
+  const confirmedRows = confirmed.map(o=>{
+    gt += Number(o.total||0);
+    return `<div class="bill-row"><span>${escapeHTML(o.name)} x ${o.qty}</span><span>₩ ${fmtKRW(o.total)}</span></div>`;
+  }).join('');
+
+  // current cart (new)
+  let ct = 0;
+  let newRows = '';
+  for (const item of menu){
+    const qty = Number(state.order.cart?.[item.id] || 0);
+    if (!qty) continue;
+    const newP = Math.floor(Number(item.price||0)*0.95);
+    ct += newP*qty;
+    newRows += `<div class="bill-row" style="color:var(--primary)"><span>[New] ${escapeHTML(item.name)} x ${qty}</span><span>₩ ${fmtKRW(newP*qty)}</span></div>`;
+  }
+
+  openModal({
+    title:'Your Bill',
+    bodyHTML:`
+      <div class="bill">
+        ${confirmedRows || `<p class="muted">확정 주문이 없습니다.</p>`}
+        ${newRows ? `<div class="hr" style="margin:10px 0"></div>${newRows}` : ``}
+        <div class="bill-total"><span>Total</span><span style="color:var(--danger)">₩ ${fmtKRW(gt+ct)}</span></div>
+
+        <div class="modal-actions" style="flex-direction:column">
+          <button class="btn primary" id="btnPayFinish">Pay & Finish</button>
+          <button class="btn ghost" id="btnContinue">Continue</button>
+        </div>
+      </div>
+    `
+  });
+
+  $('#btnContinue')?.addEventListener('click', ()=> closeModal());
+  $('#btnPayFinish')?.addEventListener('click', ()=>{
+    // finalize
+    state.history.unshift({
+      at: nowISO(),
+      title: `Dining finished (Table ${state.order.table})`,
+      meta: `${p.name} / Total ₩ ${fmtKRW(gt+ct)}`
+    });
+    state.order.table = '';
+    state.order.cart = {};
+    state.order.confirmed = [];
+    saveState();
+    closeModal();
+    nav('/');
+  });
+
+  setIcon();
+}
+
+function copyText(t){
+  if (!t) return;
+  if (navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(t).then(()=> toast('복사되었습니다.'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = t;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+    toast('복사되었습니다.');
+  }
+}
+
+
 function catBtn(cat, icon){
   return `<button class="cat" data-cat="${cat}"><i data-lucide="${icon}" style="width:14px"></i><span>${cat}</span></button>`;
 }
@@ -373,6 +837,7 @@ function bottomNavHTML(active){
     <div class="bottom-nav" id="bottomNav">
       ${navBtn('home','Home','home', active==='home')}
       ${navBtn('map','Map','map', active==='map')}
+      ${navBtn('order','Order','scan-line', active==='order')}
       ${navBtn('myfit','My fit','sparkles', active==='myfit')}
       ${navBtn('history','History','clock', active==='history')}
     </div>
@@ -392,6 +857,7 @@ function bindBottomNav(active){
       const k = btn.getAttribute('data-nav');
       if (k === 'home') return nav('/');
       if (k === 'map') return openMapPage();
+      if (k === 'order') return nav('/order');
       if (k === 'myfit') return openMyFitPage();
       if (k === 'history') return openHistoryPage();
     };
@@ -600,21 +1066,44 @@ function openTodoModal(){
       openTodoEditModal(id);
     };
   });
+
+  $$('.todo-del').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = Number(btn.getAttribute('data-id'));
+      openConfirmModal({
+        title: '삭제',
+        message: '이 항목을 삭제하시겠습니까?',
+        okText: '삭제',
+        cancelText: '취소',
+        onOk: ()=>{
+          state.todo = state.todo.filter(x=>x.id!==id);
+          saveState();
+          closeModal();
+          openTodoModal();
+        }
+      });
+    };
+  });
+
 }
 
 function renderTodoItem(t){
   const checked = t.done ? 'checked' : '';
   const faded = t.done ? 'style="opacity:.5"' : '';
+  const dt = t.date ? `${t.date}${t.time ? ' ' + t.time : ''}` : '날짜 미정';
   return `
     <div class="list-item" ${faded}>
       <div class="row" style="gap:10px;flex:1">
         <div class="checkbox ${checked} todo-toggle" data-id="${t.id}">${t.done?'✓':''}</div>
         <div style="flex:1">
           <div style="font-weight:900">${t.title}</div>
-          <div class="small muted">${t.date ? `${t.date} ${t.time||''}` : '날짜 미정'}</div>
+          <div class="small muted">${dt}</div>
         </div>
       </div>
-      <button class="btn ghost small todo-edit" data-id="${t.id}">편집</button>
+      <div class="row" style="gap:6px">
+        <button class="btn ghost small todo-edit" data-id="${t.id}">편집</button>
+        <button class="btn ghost small todo-del" data-id="${t.id}">삭제</button>
+      </div>
     </div>
   `;
 }
@@ -681,26 +1170,97 @@ function openFavModal(){
     title:'Favorites',
     bodyHTML: `
       <div class="list">
-        ${state.favorites.length ? state.favorites.map(f=>`
-          <div class="list-item">
-            <div class="row" style="flex:1">
-              <span class="badge">${f.cat}</span>
-              <div style="font-weight:900">${f.title}</div>
+        ${state.favorites.length ? state.favorites.map(f=>{
+          const d = f.date || '';
+          const t = f.time || '';
+          const when = (d || t) ? `${d || '날짜 미정'}${t ? ' ' + t : ''}` : '날짜/시간 미정';
+          return `
+            <div class="list-item">
+              <div class="row" style="flex:1; gap:10px; align-items:flex-start">
+                <span class="badge">${f.cat}</span>
+                <div style="flex:1">
+                  <div style="font-weight:900">${f.title}</div>
+                  <div class="small muted">예약/방문: ${when}</div>
+                </div>
+              </div>
+              <div class="row" style="gap:6px">
+                <button class="btn ghost small fav-edit" data-id="${f.id}">편집</button>
+                <button class="btn ghost small fav-del" data-id="${f.id}">삭제</button>
+              </div>
             </div>
-            <button class="btn ghost small fav-del" data-id="${f.id}">삭제</button>
-          </div>
-        `).join('') : `<p class="muted">비어 있습니다.</p>`}
+          `;
+        }).join('') : `<p class="muted">비어 있습니다.</p>`}
       </div>
+      <p class="small muted" style="margin-top:10px">편집에서 날짜/시간을 지정할 수 있습니다.</p>
     `
   });
+
+  $$('.fav-edit').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = Number(btn.getAttribute('data-id'));
+      openFavEditModal(id);
+    };
+  });
+
   $$('.fav-del').forEach(btn=>{
     btn.onclick = ()=>{
       const id = Number(btn.getAttribute('data-id'));
-      state.favorites = state.favorites.filter(x=>x.id!==id);
-      saveState(); closeModal(); openFavModal();
+      openConfirmModal({
+        title:'삭제',
+        message:'즐겨찾기를 삭제하시겠습니까?',
+        okText:'삭제',
+        cancelText:'취소',
+        onOk: ()=>{
+          state.favorites = state.favorites.filter(x=>x.id!==id);
+          saveState();
+          closeModal();
+          openFavModal();
+        }
+      });
     };
   });
 }
+
+function openFavEditModal(id){
+  const f = state.favorites.find(x=>x.id===id);
+  if(!f) return;
+
+  openModal({
+    title: 'Favorite 편집',
+    bodyHTML: `
+      <div class="card">
+        <div style="font-weight:900">${f.title}</div>
+        <div class="small muted" style="margin-top:4px">${f.cat}</div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="section-title" style="margin-bottom:8px">날짜/시간 지정</div>
+        <div class="row" style="gap:10px">
+          <input id="favDate" class="input" type="date" value="${f.date || ''}">
+          <input id="favTime" class="input" type="time" value="${f.time || ''}">
+        </div>
+        <div class="small muted" style="margin-top:8px">빈 값으로 저장하면 날짜/시간은 미정 처리됩니다.</div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:14px">
+        <button class="btn ghost" id="favCancel">취소</button>
+        <button class="btn primary" id="favSave">저장</button>
+      </div>
+    `
+  });
+
+  $('#favCancel').onclick = ()=>{ closeModal(); openFavModal(); };
+  $('#favSave').onclick = ()=>{
+    const d = ($('#favDate').value || '').trim();
+    const t = ($('#favTime').value || '').trim();
+    f.date = d; // '' 가능
+    f.time = t; // '' 가능
+    saveState();
+    closeModal();
+    openFavModal();
+  };
+}
+
 
 function openScheduleModal(){
   normalizeTodoToSchedule();
@@ -735,6 +1295,32 @@ function openScheduleModal(){
       saveState(); closeModal(); openScheduleModal();
     };
   });
+
+  $$('.sch-edit').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = Number(btn.getAttribute('data-id'));
+      openScheduleEditModal(id);
+    };
+  });
+
+  $$('.sch-del').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = Number(btn.getAttribute('data-id'));
+      openConfirmModal({
+        title: '삭제',
+        message: '이 일정을 삭제하시겠습니까?',
+        okText: '삭제',
+        cancelText: '취소',
+        onOk: ()=>{
+          state.schedule = state.schedule.filter(x=>x.id!==id);
+          saveState();
+          closeModal();
+          openScheduleModal();
+        }
+      });
+    };
+  });
+
 }
 
 function renderSchItem(s){
@@ -750,6 +1336,10 @@ function renderSchItem(s){
           <div style="font-weight:900">${s.title}</div>
           <div class="small muted">${s.time || '시간 미정'}</div>
         </div>
+      </div>
+      <div class="row" style="gap:6px">
+        <button class="btn ghost small sch-edit" data-id="${s.id}">편집</button>
+        <button class="btn ghost small sch-del" data-id="${s.id}">삭제</button>
       </div>
     </div>
   `;
@@ -774,6 +1364,48 @@ function openScheduleAddModal(){
     saveState(); closeModal(); openScheduleModal();
   };
 }
+
+function openScheduleEditModal(id){
+  const s = state.schedule.find(x=>x.id===id);
+  if(!s) return;
+
+  openModal({
+    title: 'Schedule 편집',
+    bodyHTML: `
+      <div class="card">
+        <div class="section-title" style="margin-bottom:8px">내용</div>
+        <input id="schTitle" class="input" type="text" value="${escapeHTML(s.title)}" placeholder="일정 제목">
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <div class="section-title" style="margin-bottom:8px">시간</div>
+        <input id="schTime" class="input" type="time" value="${s.time || ''}">
+        <div class="small muted" style="margin-top:8px">빈 값으로 저장하면 시간은 미정 처리됩니다.</div>
+      </div>
+
+      <div class="modal-actions" style="margin-top:14px">
+        <button class="btn ghost" id="schEditCancel">취소</button>
+        <button class="btn primary" id="schEditSave">저장</button>
+      </div>
+    `
+  });
+
+  $('#schEditCancel').onclick = ()=>{ closeModal(); openScheduleModal(); };
+  $('#schEditSave').onclick = ()=>{
+    const title = ($('#schTitle').value || '').trim();
+    const time = ($('#schTime').value || '').trim();
+    if (!title){
+      openToast('제목을 입력해 주세요.');
+      return;
+    }
+    s.title = title;
+    s.time = time;
+    saveState();
+    closeModal();
+    openScheduleModal();
+  };
+}
+
 
 /* ---------- Saved / Weather ---------- */
 function openSavedModal(){
@@ -893,7 +1525,9 @@ function openHistoryPage(){
 /* ---------- Landing: entrance/menu ---------- */
 function renderLandingEntrance(pid, isApp){
   const p = partnerDB[pid] || { name:'Unknown Partner', desc:'', heroImg:'' };
-  // 랜딩은 header 제외(요구사항)
+
+  // 요구사항(초기): 랜딩은 헤더 제외
+  // 실제 운영/테스트 편의를 위해, app=1(앱 설치자/앱모드)에서는 헤더+하단탭을 노출하도록 개선
   const installBlock = isApp ? '' : `
     <div class="card" style="margin-top:12px">
       <div style="font-weight:900">멤버십 할인 앱, imake</div>
@@ -910,9 +1544,10 @@ function renderLandingEntrance(pid, isApp){
   `;
 
   appRoot.innerHTML = `
-    <div class="content landing">
-      <div class="logo" style="font-size:22px">imake</div>
-      <div style="margin-top:10px">
+    ${isApp ? headerHTML() : ''}
+    <div class="content ${isApp ? '' : 'landing'}" id="content">
+      ${isApp ? '' : `<div class="logo" style="font-size:22px">imake</div>`}
+      <div style="margin-top:${isApp ? 0 : 10}px">
         ${p.heroImg ? `<img src="${p.heroImg}" style="width:100%;border-radius:18px;max-height:220px;object-fit:cover">` : ''}
       </div>
       <h2 style="margin-top:12px">${p.name}</h2>
@@ -941,9 +1576,13 @@ function renderLandingEntrance(pid, isApp){
         <button class="btn ghost" id="btnBack" style="width:100%">홈으로</button>
       </div>
     </div>
+
+    ${bottomNavHTML('home')}
   `;
 
   setIcon();
+  if (isApp) { bindHeader(); }
+  bindBottomNav('home');
 
   $('#btnBack').onclick = ()=> { history.pushState({}, '', '/'); render(); };
 
@@ -1012,11 +1651,12 @@ function renderLandingMenu(pid, isApp){
       </div>
     </div>
 
-    ${isApp ? bottomNavHTML('home') : ''}
+    ${bottomNavHTML('home')}
   `;
 
   setIcon();
-  if (isApp) { bindHeader(); bindBottomNav('home'); }
+  if (isApp) { bindHeader(); }
+  bindBottomNav('home');
 
   $('#btnBack').onclick = ()=> { history.pushState({}, '', '/'); render(); };
 
@@ -1204,3 +1844,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
   render();
   setIcon();
 });
+
+function openToast(msg){
+  // 프로토타입: 간단 처리
+  alert(msg);
+}
+
+
+function openConfirmModal({title='Confirm', message='', okText='OK', cancelText='Cancel', onOk=()=>{}, onCancel=()=>{}}){
+  openModal({
+    title,
+    bodyHTML: `
+      <p class="muted" style="line-height:1.5">${message}</p>
+      <div class="modal-actions" style="margin-top:14px">
+        <button class="btn ghost" id="cCancel">${cancelText}</button>
+        <button class="btn danger" id="cOk">${okText}</button>
+      </div>
+    `
+  });
+  $('#cCancel').onclick = ()=>{ closeModal(); onCancel(); };
+  $('#cOk').onclick = ()=>{ closeModal(); onOk(); };
+}
+render();

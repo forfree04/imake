@@ -1,4 +1,9 @@
 :root{
+  --help-tab-h:28px;
+
+  --header-h:60px;
+  --safe-top: env(safe-area-inset-top, 0px);
+
   --primary:#3b82f6;
   --bg:#f8fafc;
   --surface:#ffffff;
@@ -30,6 +35,8 @@ body{
   box-shadow:0 40px 80px rgba(0,0,0,.35);
   overflow:hidden;
   position:relative;
+  display:flex;
+  flex-direction:column;
 }
 
 @media (max-width: 500px){
@@ -59,11 +66,75 @@ p,span,div,button,input,textarea{font-size:14px;line-height:1.4}
   align-items:center;
   padding:0 14px;
   border-bottom:1px solid var(--border);
-  position:sticky;
-  top:0;
+  position:relative;
   background:#fff;
-  z-index:20;
+  z-index:2000;
 }
+
+
+.help-backdrop{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.35);
+  backdrop-filter: blur(2px);
+  z-index:1400;
+  display:none;
+}
+/* show only when help is open */
+.help-backdrop.show{ display:block; }
+
+/* scroll lock while help open */
+.frame.help-open .content{
+  overflow:hidden;
+  overscroll-behavior: contain;
+  touch-action: none;
+}
+
+/* HELP overlay: header 아래에서 슬라이드 (body를 밀지 않고 덮음 / header는 항상 위) */
+.help-drawer{
+  position:absolute;
+  /* -1px: header border-bottom과 help tab이 '붙어 보이도록' 미세 오프셋 */
+  top:calc(var(--header-h) + var(--safe-top) - 1px);
+  left:0; right:0;
+  width:100%;
+  z-index:1500; /* header(2000)보다 낮고, content보다 높게 */
+  will-change: transform;
+  transform:translate3d(0, calc(-100% + var(--help-tab-h)), 0);
+  transition:transform .35s cubic-bezier(.16,1,.3,1);
+}
+.help-drawer.open{ transform:translate3d(0,0,0); }
+
+.help-panel{
+  background:#fff;
+  border-bottom:3px solid var(--primary);
+  box-shadow:0 10px 24px rgba(0,0,0,.10);
+}
+.help-panel-inner{
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.help-tab-btn{
+  display:block;
+  width:86px;
+  height:var(--help-tab-h);
+  margin:0 auto;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-bottom-left-radius:12px;
+  border-bottom-right-radius:12px;
+  /* border line과 시각적으로 딱 붙게 */
+  position:relative;
+  top:-1px;
+  font-size:10px;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(0,0,0,.12);
+}
+
 .header .left{display:flex;justify-content:flex-start;align-items:center}
 .header .center{display:flex;justify-content:center;align-items:center;gap:6px;color:var(--primary);font-weight:900;cursor:pointer}
 .header .right{display:flex;justify-content:flex-end;align-items:center;gap:6px}
@@ -71,13 +142,13 @@ p,span,div,button,input,textarea{font-size:14px;line-height:1.4}
 .icon-btn{border:none;background:none;padding:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text)}
 
 .content{
-  height:calc(100vh - 60px - 78px);
+  flex:1;
   overflow:auto;
   background:var(--bg);
-  padding:14px;
+  padding:calc(14px + var(--help-tab-h)) 14px 14px;
 }
-.content.no-nav{height:calc(100vh - 60px)}
-.content.landing{height:100vh;padding:18px;background:#fff}
+.content.no-nav{flex:1;}
+.content.landing{flex:1;padding:18px;background:#fff;}
 
 .section-title{font-size:12px;font-weight:900;color:var(--primary);margin:6px 0 10px}
 .card{
@@ -164,15 +235,15 @@ p,span,div,button,input,textarea{font-size:14px;line-height:1.4}
 .dot{width:8px;height:8px;border-radius:50%}
 
 .bottom-nav{
-  height:78px;
-  position:absolute;
-  left:0;right:0;bottom:0;
+  flex:none;
+  /* iOS/Android safe-area 대응 (PWA/웹뷰에서 하단이 잘릴 수 있음) */
+  height:calc(78px + env(safe-area-inset-bottom, 0px));
   border-top:1px solid var(--border);
   background:rgba(255,255,255,.96);
   display:flex;
   justify-content:space-around;
   align-items:center;
-  padding-bottom:18px;
+  padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));
   z-index:30;
 }
 .nav-btn{
@@ -185,36 +256,6 @@ p,span,div,button,input,textarea{font-size:14px;line-height:1.4}
 .nav-btn.active{color:var(--primary)}
 .nav-btn span{font-size:10px;font-weight:900}
 
-.help-system{
-  position:absolute;
-  top:60px;left:0;right:0;
-  transform:translateY(-100%);
-  transition:transform .35s cubic-bezier(.16, 1, .3, 1);
-  z-index:25;
-}
-.help-system.open{transform:translateY(0)}
-.help-panel{
-  background:#fff;
-  border-bottom:3px solid var(--primary);
-  padding:16px;
-  box-shadow:var(--shadow);
-  display:flex;flex-direction:column;gap:10px;
-}
-.help-tab{
-  width:86px;height:28px;
-  background:var(--primary);
-  color:#fff;
-  position:absolute;
-  bottom:-28px;
-  left:50%;
-  transform:translateX(-50%);
-  display:flex;align-items:center;justify-content:center;
-  border-radius:0 0 12px 12px;
-  font-size:10px;
-  font-weight:900;
-  cursor:pointer;
-  box-shadow:0 4px 10px rgba(0,0,0,.12);
-}
 
 .modal-overlay{
   position:absolute;
@@ -224,7 +265,7 @@ p,span,div,button,input,textarea{font-size:14px;line-height:1.4}
   align-items:center;
   justify-content:center;
   backdrop-filter:blur(6px);
-  z-index:100;
+  z-index:150;
 }
 .modal-box{
   width:min(92%, 410px);
@@ -265,3 +306,90 @@ p,span,div,button,input,textarea{font-size:14px;line-height:1.4}
 }
 .select{width:100%;border:1px solid var(--border);border-radius:14px;padding:12px 12px;background:#fff}
 .hr{height:1px;background:#f1f5f9;margin:12px 0}
+
+
+/* ---------- Order (QR Menu) ---------- */
+.row.between{justify-content:space-between}
+.wifi-card{margin-top:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:14px;padding:12px}
+.wifi-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px}
+.wifi-row:first-child{margin-top:0}
+.wifi-val{font-weight:900}
+
+.ticket{
+  width:120px;height:120px;
+  border:2px dashed #cbd5e1;
+  border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:52px;font-weight:900;color:var(--primary);
+  margin:10px auto 12px;
+  background:#fff;
+}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.num-btn{
+  height:58px;border-radius:16px;
+  border:1px solid #e2e8f0;
+  background:#fff;
+  font-size:22px;font-weight:800;
+  cursor:pointer;
+  box-shadow:0 2px 0 #cbd5e1;
+}
+.num-btn.danger{color:var(--danger)}
+.menu-list{display:flex;flex-direction:column;gap:10px;max-height:380px;overflow:auto;padding-right:2px}
+.menu-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f1f5f9}
+.menu-img{width:78px;height:78px;border-radius:14px;object-fit:cover;background:#eee;flex:0 0 auto}
+.menu-info{flex:1;display:flex;flex-direction:column;gap:6px}
+.prices{display:flex;align-items:baseline;gap:8px}
+.prices .old{color:#94a3b8;text-decoration:line-through;font-size:12px}
+.prices .new{color:var(--danger);font-weight:900}
+.prices .disc{font-size:11px;font-weight:900;color:var(--danger);background:#fee2e2;border-radius:8px;padding:2px 6px}
+.qty{display:flex;align-items:center;gap:10px;margin-top:6px}
+.qty-btn{width:28px;height:28px;border-radius:50%;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:900}
+.qty-n{min-width:18px;text-align:center;font-weight:900}
+
+.cart-bar{
+  margin-top:12px;
+  position:sticky;
+  bottom:0;
+  background:#fff;
+  border:1px solid #f1f5f9;
+  border-radius:16px;
+  padding:12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  box-shadow:0 -6px 18px rgba(0,0,0,.06);
+}
+.cart-bar .total{font-weight:900;font-size:18px}
+
+.bill{padding:2px 0}
+.bill-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;color:#475569}
+.bill-total{display:flex;justify-content:space-between;gap:10px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;font-size:18px;font-weight:900;color:#1e293b}
+
+.list-btn{
+  width:100%;
+  text-align:left;
+  border:1px solid var(--border);
+  background:#fff;
+  border-radius:14px;
+  padding:12px;
+  cursor:pointer;
+}
+.list-btn:active{transform:translateY(1px)}
+/* Toast */
+.toast{
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:110px;
+  background:rgba(15,23,42,.92);
+  color:#fff;
+  padding:10px 14px;
+  border-radius:14px;
+  font-weight:800;
+  font-size:13px;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;
+  z-index:99999;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(-2px)}
