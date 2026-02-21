@@ -18,7 +18,7 @@
                 </div>
                 <div class="header-center" onclick="openQRModal()">
                     <i data-lucide="qr-code"></i>
-                    <span>My QR</span>
+                    <span data-i18n="my_qr">My QR</span>
                 </div>
                 <div class="header-right">
                     <button class="icon-btn lang-trigger" onclick="openLangModal()">
@@ -65,8 +65,8 @@
         <div id="side-menu-overlay" class="menu-overlay" onclick="closeSideMenu()"></div>
         <div id="side-menu" class="side-menu">
             <div class="menu-header">
-                <h3>Menu</h3>
-                <button class="icon-btn" onclick="closeSideMenu()"><i data-lucide="x"></i></button>
+                <h3 data-i18n="menu_title">Menu</h3>
+                <button class="icon-btn" onclick="closeSideMenu()" style="border:none; cursor:pointer;"><i data-lucide="x"></i></button>
             </div>
             <div class="user-profile" onclick="navigateTo('login')">
                 <div class="avatar"><i data-lucide="user"></i></div>
@@ -78,18 +78,18 @@
             <hr class="divider">
             <div class="menu-scroll-area">
                 <ul class="menu-list">
-                    <li onclick="navigateTo('history')"><i data-lucide="history"></i> My History</li>
-                    <li onclick="navigateTo('voucher')"><i data-lucide="ticket"></i> My Vouchers</li>
+                    <li onclick="navigateTo('history')"><i data-lucide="history"></i> <span data-i18n="menu_history">My History</span></li>
+                    <li onclick="navigateTo('voucher')"><i data-lucide="ticket"></i> <span data-i18n="menu_voucher">My Vouchers</span></li>
                     <hr class="divider-thin">
-                    <li onclick="navigateTo('map')"><i data-lucide="map"></i> Map Search</li>
-                    <li onclick="navigateTo('search')"><i data-lucide="search"></i> Search App</li>
+                    <li onclick="navigateTo('map')"><i data-lucide="map"></i> <span data-i18n="menu_map">Map Search</span></li>
+                    <li onclick="navigateTo('search')"><i data-lucide="search"></i> <span data-i18n="menu_search">Search App</span></li>
                     <hr class="divider-thin">
-                    <li onclick="navigateTo('spot-event')"><i data-lucide="store"></i> Spot Events</li>
-                    <li onclick="navigateTo('festival')"><i data-lucide="party-popper"></i> Festivals</li>
-                    <li onclick="navigateTo('hotplace')"><i data-lucide="flame"></i> Hotplaces</li>
-                    <li onclick="navigateTo('intro')"><i data-lucide="map-pin"></i> About Seoul</li>
-                    <li onclick="navigateTo('local-tour')"><i data-lucide="bus"></i> Local Tourism</li>
-                    <li onclick="navigateTo('free-tour')"><i data-lucide="smile"></i> Free Korea Tour</li>
+                    <li onclick="navigateTo('spot-event')"><i data-lucide="store"></i> <span data-i18n="menu_spot">Spot Events</span></li>
+                    <li onclick="navigateTo('festival')"><i data-lucide="party-popper"></i> <span data-i18n="menu_festival">Festivals</span></li>
+                    <li onclick="navigateTo('hotplace')"><i data-lucide="flame"></i> <span data-i18n="menu_hotplace">Hotplaces</span></li>
+                    <li onclick="navigateTo('intro')"><i data-lucide="map-pin"></i> <span data-i18n="menu_intro">About Seoul</span></li>
+                    <li onclick="navigateTo('local-tour')"><i data-lucide="bus"></i> <span data-i18n="menu_local">Local Tourism</span></li>
+                    <li onclick="navigateTo('free-tour')"><i data-lucide="smile"></i> <span data-i18n="menu_free">Free Korea Tour</span></li>
                 </ul>
             </div>
         </div>
@@ -100,21 +100,21 @@
                     <div class="dash-card blue" onclick="openTodoModal()">
                         <div class="dash-icon"><i data-lucide="check-square"></i></div>
                         <div class="dash-info">
-                            <span class="dash-label">To Do</span>
+                            <span class="dash-label" data-i18n="dash_todo">To Do</span>
                             <span class="dash-value" id="count-todo">0</span>
                         </div>
                     </div>
                     <div class="dash-card red" onclick="openFavModal()">
                         <div class="dash-icon"><i data-lucide="heart"></i></div>
                         <div class="dash-info">
-                            <span class="dash-label">Favorites</span>
+                            <span class="dash-label" data-i18n="dash_fav">Favorites</span>
                             <span class="dash-value" id="count-fav">0</span>
                         </div>
                     </div>
                     <div class="dash-card green" onclick="openScheduleModal()">
                         <div class="dash-icon"><i data-lucide="calendar"></i></div>
                         <div class="dash-info">
-                            <span class="dash-label">Schedule</span>
+                            <span class="dash-label" data-i18n="dash_sched">Schedule</span>
                             <span class="dash-value" id="count-sched">0</span>
                         </div>
                     </div>
@@ -122,7 +122,7 @@
 
                 <div class="info-banner-row">
                     <div class="banner-box saved-box" onclick="alert('Total Saved Modal')">
-                        <span class="label">Total Saved</span>
+                        <span class="label" data-i18n="banner_saved">Total Saved</span>
                         <span class="value">₩ 5,000</span>
                     </div>
                     <div class="banner-box weather-box" onclick="alert('Weather Detail Modal')">
@@ -132,12 +132,12 @@
                 </div>
 
                 <div class="category-scroll">
-                    <button class="cat-btn active" onclick="filterCategory('all')"><i data-lucide="layers"></i> All</button>
-                    <button class="cat-btn" onclick="filterCategory('food')"><i data-lucide="utensils"></i> Food</button>
-                    <button class="cat-btn" onclick="filterCategory('cafe')"><i data-lucide="coffee"></i> Cafe</button>
-                    <button class="cat-btn" onclick="filterCategory('store')"><i data-lucide="store"></i> Store</button>
-                    <button class="cat-btn" onclick="filterCategory('beauty')"><i data-lucide="scissors"></i> Beauty</button>
-                    <button class="cat-btn" onclick="filterCategory('activity')"><i data-lucide="ticket"></i> Activity</button>
+                    <button class="cat-btn active" onclick="filterCategory('all')"><i data-lucide="layers"></i> <span data-i18n="cat_all">All</span></button>
+                    <button class="cat-btn" onclick="filterCategory('food')"><i data-lucide="utensils"></i> <span data-i18n="cat_food">Food</span></button>
+                    <button class="cat-btn" onclick="filterCategory('cafe')"><i data-lucide="coffee"></i> <span data-i18n="cat_cafe">Cafe</span></button>
+                    <button class="cat-btn" onclick="filterCategory('store')"><i data-lucide="store"></i> <span data-i18n="cat_store">Store</span></button>
+                    <button class="cat-btn" onclick="filterCategory('beauty')"><i data-lucide="scissors"></i> <span data-i18n="cat_beauty">Beauty</span></button>
+                    <button class="cat-btn" onclick="filterCategory('activity')"><i data-lucide="ticket"></i> <span data-i18n="cat_activity">Activity</span></button>
                 </div>
 
                 <div class="map-wrapper" style="position: relative; width: 100%; height: 400px;">
@@ -149,8 +149,8 @@
 
                 <div class="rec-section">
                     <div class="section-header">
-                        <h3>Recommended Spots</h3>
-                        <span style="font-size:12px; color:#888;">Near you</span>
+                        <h3 data-i18n="rec_title">Recommended Spots</h3>
+                        <span style="font-size:12px; color:#888;" data-i18n="rec_near">Near you</span>
                     </div>
                     <div id="rec-list-container" class="rec-list"></div>
                 </div>
@@ -158,16 +158,116 @@
 
             <div id="page-map" class="page"><div class="page-content"><h2>Map Search</h2></div></div>
             <div id="page-myfit" class="page"><div class="page-content"><h2>My Fit</h2></div></div>
-            <div id="page-history" class="page"><div class="page-content"><h2>My History</h2></div></div>
+            <div id="page-history" class="page">
+                <div class="page-content">
+                    <h2>My History</h2>
+                    <div id="list-history" style="margin-top:20px; display:flex; flex-direction:column; gap:10px;"></div>
+                </div>
+            </div>
             <div id="page-profile" class="page"><div class="page-content"><h2>Profile</h2><button onclick="handleLogout()" style="margin-top:20px; padding:10px 20px;">Logout</button></div></div>
-            <div id="page-voucher" class="page"><div class="page-content"><h2>Voucher</h2></div></div>
+            
+            <!-- [신규] 바우처 페이지 -->
+            <div id="page-voucher" class="page">
+                <div class="page-content">
+                    <h2 style="margin-bottom:20px;">My Vouchers</h2>
+                    <div class="voucher-list">
+                        <div class="voucher-card">
+                            <div class="voucher-left">
+                                <div class="voucher-amount">30,000₩</div>
+                                <div class="voucher-title">Welcome Coupon</div>
+                                <div class="voucher-date">~ 2024.12.31</div>
+                            </div>
+                            <button class="voucher-btn">Use</button>
+                        </div>
+                        <div class="voucher-card">
+                            <div class="voucher-left">
+                                <div class="voucher-amount">5% OFF</div>
+                                <div class="voucher-title">Membership Discount</div>
+                                <div class="voucher-date">Unlimited</div>
+                            </div>
+                            <button class="voucher-btn">Use</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="page-search" class="page"><div class="page-content"><h2>Search App</h2></div></div>
-            <div id="page-spot-event" class="page"><div class="page-content"><h2>Spot Events</h2></div></div>
+            
+            <!-- [신규] 스팟 이벤트 페이지 -->
+            <div id="page-spot-event" class="page">
+                <div class="page-content">
+                    <h2 style="margin-bottom:20px;">Spot Events</h2>
+                    <div class="event-list">
+                        <div class="event-card">
+                            <div class="event-img" style="background-image: url('https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9?w=500');"></div>
+                            <div class="event-info">
+                                <div class="event-title">Han River Night Market</div>
+                                <div class="event-date">2023.10.01 ~ 10.31</div>
+                                <div class="event-loc"><i data-lucide="map-pin" style="width:12px;"></i> Yeouido Park</div>
+                            </div>
+                        </div>
+                        <div class="event-card">
+                            <div class="event-img" style="background-image: url('https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=500');"></div>
+                            <div class="event-info">
+                                <div class="event-title">K-Pop Concert</div>
+                                <div class="event-date">2023.11.15</div>
+                                <div class="event-loc"><i data-lucide="map-pin" style="width:12px;"></i> Gocheok Sky Dome</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="page-festival" class="page"><div class="page-content"><h2>Festivals</h2></div></div>
             <div id="page-hotplace" class="page"><div class="page-content"><h2>Hotplaces</h2></div></div>
             <div id="page-intro" class="page"><div class="page-content"><h2>About Seoul</h2></div></div>
             <div id="page-local-tour" class="page"><div class="page-content"><h2>Local Tourism</h2></div></div>
             <div id="page-free-tour" class="page"><div class="page-content"><h2>Free Korea Tour</h2></div></div>
+
+            <!-- [신규] 주문 시스템 페이지들 -->
+            <div id="page-order-table" class="page">
+                <div class="page-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh;">
+                    <h2 style="margin-bottom:10px;">Table Number</h2>
+                    <p style="color:#888; margin-bottom:30px;">테이블 번호를 입력해주세요</p>
+                    <div class="ticket-icon" id="ticketDisplay">--</div>
+                    <div class="numpad">
+                        <button class="num-btn" onclick="inputNum(1)">1</button><button class="num-btn" onclick="inputNum(2)">2</button><button class="num-btn" onclick="inputNum(3)">3</button>
+                        <button class="num-btn" onclick="inputNum(4)">4</button><button class="num-btn" onclick="inputNum(5)">5</button><button class="num-btn" onclick="inputNum(6)">6</button>
+                        <button class="num-btn" onclick="inputNum(7)">7</button><button class="num-btn" onclick="inputNum(8)">8</button><button class="num-btn" onclick="inputNum(9)">9</button>
+                        <button class="num-btn" onclick="inputNum('C')" style="color:#ef4444">C</button><button class="num-btn" onclick="inputNum(0)">0</button><button class="num-btn" onclick="inputNum('BS')">←</button>
+                        <button class="num-btn confirm" onclick="checkTableNum()">입력 완료</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-order-menu" class="page" style="padding-bottom: 140px;">
+                <div class="page-content">
+                    <div class="order-header">
+                        <div class="order-title">
+                            <h2>Menu</h2>
+                            <span id="headerTableNum" class="table-badge"></span>
+                        </div>
+                        <div class="order-actions">
+                            <button onclick="openBillModal()" class="btn-bill"><i data-lucide="receipt" style="width:16px;"></i> Bill</button>
+                            <button onclick="minimizeOrder()" class="btn-minimize"><i data-lucide="chevron-down"></i></button>
+                        </div>
+                    </div>
+                    <div id="orderMenuList"></div>
+                </div>
+                <div class="cart-bar">
+                    <div style="color:white; font-size:18px; font-weight:bold;">Total: ₩ <span id="totalPrice">0</span></div>
+                    <button class="order-btn" id="btnOrder" onclick="openOrderSummary()" disabled>주문하기</button>
+                </div>
+            </div>
+
+            <div id="page-order-waiting" class="page">
+                <div class="page-content" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; text-align:center;">
+                    <div class="pulse-icon"><i data-lucide="send" style="width:32px; height:32px;"></i></div>
+                    <h2 style="margin-bottom:10px;">주문 접수 중...</h2>
+                    <p style="color:#888; margin-bottom:30px;">주방에서 주문을 확인하고 있습니다.<br>잠시만 기다려주세요.</p>
+                    <div id="waiting-timer" style="font-size:24px; font-weight:bold; color:#3b82f6;">00:00</div>
+                </div>
+            </div>
 
             <div id="page-login" class="page">
                 <div class="login-container" style="padding: 40px 20px; text-align: center;">
@@ -264,8 +364,10 @@
             <div class="modal-content lang-content" onclick="event.stopPropagation()">
                 <h3>Select Language</h3>
                 <ul class="lang-list" style="list-style: none; padding: 0;">
-                    <li onclick="changeLang('ko')" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">한국어</li>
-                    <li onclick="changeLang('en')" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">English</li>
+                    <li onclick="changeLanguage('ko')" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">한국어</li>
+                    <li onclick="changeLanguage('en')" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">English</li>
+                    <li onclick="changeLanguage('ja')" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">日本語</li>
+                    <li onclick="changeLanguage('zh')" style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;">中文 (Chinese)</li>
                 </ul>
             </div>
         </div>
@@ -277,15 +379,29 @@
                 <div id="detail-body" style="padding:0;"></div>
             </div>
         </div>
+        
+        <!-- [신규] 주문 확인 모달 (Bill) -->
+        <div id="modal-bill" class="modal-overlay">
+            <div class="modal-content list-modal auto-height" onclick="event.stopPropagation()">
+                <div id="bill-body" style="padding:20px;"></div>
+            </div>
+        </div>
 
         <nav class="bottom-nav">
             <div class="nav-inner">
-                <button class="nav-item active" onclick="navigateTo('home')"><i data-lucide="home"></i><span>Home</span></button>
-                <button class="nav-item" onclick="navigateTo('map')"><i data-lucide="map"></i><span>Map</span></button>
-                <button class="nav-item" onclick="navigateTo('myfit')"><i data-lucide="sparkles"></i><span>My fit</span></button>
-                <button class="nav-item" onclick="navigateTo('history')"><i data-lucide="history"></i><span>History</span></button>
+                <button class="nav-item active" onclick="navigateTo('home')"><i data-lucide="home"></i><span data-i18n="nav_home">Home</span></button>
+                <button class="nav-item" onclick="startQRScan()"><i data-lucide="scan-line"></i><span data-i18n="nav_order">Order</span></button>
+                <button class="nav-item" onclick="navigateTo('map')"><i data-lucide="map"></i><span data-i18n="nav_map">Map</span></button>
+                <button class="nav-item" onclick="navigateTo('myfit')"><i data-lucide="sparkles"></i><span data-i18n="nav_myfit">My fit</span></button>
+                <button class="nav-item" onclick="navigateTo('history')"><i data-lucide="history"></i><span data-i18n="nav_history">History</span></button>
             </div>
         </nav>
+
+        <!-- [신규] 플로팅 주문 버튼 -->
+        <div id="floatBtn" class="floating-order-btn" onclick="restoreOrderScreen()">
+            <i data-lucide="utensils" style="width:16px;"></i>
+            <span style="font-size:12px; font-weight:bold;">Table <span id="floatTableNum">--</span></span>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
