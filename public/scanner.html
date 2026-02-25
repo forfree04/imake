@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>imake Partner Scanner</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; margin: 0; background: #000; color: white; display: flex; flex-direction: column; height: 100vh; }
+        .scanner-container { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #reader { width: 100%; max-width: 500px; border-radius: 12px; overflow: hidden; }
+        .result-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .result-box { background: white; color: #333; padding: 40px 30px; border-radius: 20px; text-align: center; width: 80%; max-width: 320px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .status-icon { font-size: 60px; margin-bottom: 15px; display: block; }
+        .btn { padding: 14px 24px; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; margin-top: 25px; width: 100%; font-size: 16px; transition: 0.2s; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:active { transform: scale(0.98); }
+    </style>
+</head>
+<body>
+    <div class="scanner-container">
+        <h2 style="margin-bottom: 20px;">imake Partner Scanner</h2>
+        <div id="reader"></div>
+        <p style="color: #aaa; margin-top: 20px; font-size: 14px;">카메라로 고객의 QR코드를 비춰주세요</p>
+    </div>
+
+    <div id="result-modal" class="result-overlay">
+        <div class="result-box">
+            <span id="res-icon" class="status-icon"></span>
+            <h2 id="res-title" style="margin: 0 0 10px 0; font-size: 24px;"></h2>
+            <p id="res-msg" style="color: #666; margin: 0; font-size: 15px; line-height: 1.5;"></p>
+            <button class="btn btn-primary" onclick="resetScanner()">Scan Next</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAonpP6itJ9_vMlAQm-0oC-fqmhlYMReE4", authDomain: "imake-master.firebaseapp.com", projectId: "imake-master", storageBucket: "imake-master.firebasestorage.app", messagingSenderId: "612892096078", appId: "1:612892096078:web:5a573c1a0dceb525eaf51f" };
+        const app = initializeApp(firebaseConfig);
+        window.db = getFirestore(app); window.doc = doc; window.getDoc = getDoc;
+    </script>
+    <script src="scan_script.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파트너 대시보드 - imake</title>
+    <link rel="stylesheet" href="https://unpkg.com/lucide@latest">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; margin: 0; background: #f8fafc; color: #333; }
+        .admin-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .login-box { max-width: 400px; margin: 100px auto; background: white; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .dashboard { display: none; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-success { background: #10b981; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="login-view" class="login-box">
+        <h2>파트너 로그인</h2>
+        <p>제휴 업체 사장님 로그인</p>
+        <button class="btn btn-primary" onclick="providerLogin()">구글 로그인</button>
+    </div>
+
+    <!-- 가입 신청 화면 -->
+    <div id="register-view" class="login-box" style="display:none;">
+        <h2>파트너 가입 신청</h2>
+        <p>가게 정보를 입력하고 가입을 신청하세요.</p>
+        <input type="text" id="reg-store-name" placeholder="업체명 (Store Name)">
+        <input type="text" id="reg-email" placeholder="Email" disabled style="background:#eee;">
+        <button class="btn btn-success" onclick="registerProvider()" style="width:100%; margin-top:10px;">가입 신청</button>
+    </div>
+
+    <!-- 승인 대기 화면 -->
+    <div id="pending-view" class="login-box" style="display:none;">
+        <h2 style="color:#f59e0b;">⏳ 승인 대기 중</h2>
+        <p>관리자 승인 대기 중입니다.<br>승인이 완료되면 대시보드가 활성화됩니다.</p>
+        <button class="btn" onclick="providerLogout()">로그아웃</button>
+    </div>
+
+    <div id="dashboard-view" class="admin-container dashboard">
+        <div class="header">
+            <h2>🏪 내 매장 대시보드</h2>
+            <button class="btn btn-danger" onclick="providerLogout()">로그아웃</button>
+        </div>
+        
+        <div style="margin-bottom:20px; border-bottom:1px solid #ddd; display:flex; gap:10px;">
+            <button onclick="switchTab('dashboard')" id="btn-tab-dash" class="btn" style="background:none; color:#333; border-bottom:2px solid #3b82f6; border-radius:0;">대시보드</button>
+            <button onclick="switchTab('settings')" id="btn-tab-set" class="btn" style="background:none; color:#333; border-radius:0;">설정</button>
+        </div>
+
+        <div id="tab-dashboard" class="card-grid">
+            <!-- [신규] 혼잡도 관리 (신호등) -->
+            <div class="card" style="border: 2px solid #10b981; grid-column: 1 / -1;">
+                <h3 style="color:#10b981; margin-top:0;">🚦 매장 혼잡도 관리</h3>
+                <p style="color:#666; font-size:14px; margin-bottom:15px;">현재 매장의 혼잡도를 설정하세요. 사용자 앱 추천 리스트에 실시간으로 반영됩니다.</p>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="updateCongestion('green')" class="btn-congestion" id="btn-green" style="flex:1; padding:15px; border:1px solid #ddd; border-radius:8px; background:white; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; transition:0.2s;">
+                        <div style="width:24px; height:24px; border-radius:50%; background:#10b981;"></div>
+                        <span style="font-weight:bold; color:#333;">여유 (Green)</span>
+                    </button>
+                    <button onclick="updateCongestion('yellow')" class="btn-congestion" id="btn-yellow" style="flex:1; padding:15px; border:1px solid #ddd; border-radius:8px; background:white; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; transition:0.2s;">
+                        <div style="width:24px; height:24px; border-radius:50%; background:#f59e0b;"></div>
+                        <span style="font-weight:bold; color:#333;">보통 (Yellow)</span>
+                    </button>
+                    <button onclick="updateCongestion('red')" class="btn-congestion" id="btn-red" style="flex:1; padding:15px; border:1px solid #ddd; border-radius:8px; background:white; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; transition:0.2s;">
+                        <div style="width:24px; height:24px; border-radius:50%; background:#ef4444;"></div>
+                        <span style="font-weight:bold; color:#333;">혼잡 (Red)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- [핵심] 실시간 주문 접수 (KDS) -->
+            <div class="card" style="border: 2px solid #3b82f6;">
+                <h3 style="color:#3b82f6;">⚡ 실시간 주문 접수 (Live Orders)</h3>
+                <div id="live-order-list" style="min-height: 200px; background:#f0f9ff; border-radius:8px; padding:10px; margin-bottom:20px;">
+                    <p style="text-align:center; color:#888; margin-top:20px;">대기 중인 주문이 없습니다.</p>
+                </div>
+                <h4>완료된 주문</h4>
+                <div id="history-list" style="max-height: 200px; overflow-y: auto;">Loading...</div>
+            </div>
+
+            <!-- 메뉴 관리 -->
+            <div class="card">
+                <h3>메뉴 관리</h3>
+                <div id="menu-list">Loading...</div>
+                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <h4>메뉴 추가/수정</h4>
+                    <input type="hidden" id="menu-id">
+                    <input type="text" id="menu-name-ko" placeholder="메뉴명 (Korean)">
+                    <input type="text" id="menu-name-en" placeholder="메뉴명 (영어)">
+                    <input type="number" id="menu-price" placeholder="가격 (원)">
+                    <input type="text" id="menu-img" placeholder="이미지 URL">
+                    <button class="btn btn-success" onclick="saveMenu()">메뉴 저장</button>
+                    <button class="btn" onclick="clearMenuForm()">초기화</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="tab-settings" style="display:none;">
+            <div class="card" style="max-width:600px;">
+                <h3>매장 설정</h3>
+                <div id="pending-msg" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:6px; margin-bottom:15px; border:1px solid #ffeeba;">
+                    ⏳ 수정 승인 대기 중입니다. (관리자 확인 후 반영됩니다)
+                </div>
+                <label style="display:block; margin-top:15px; font-weight:bold;">업체명</label>
+                <input type="text" id="set-store-name">
+                
+                <label style="display:block; margin-top:10px; font-weight:bold;">영업 시간</label>
+                <input type="text" id="set-store-hours" placeholder="예: 10:00 - 22:00">
+
+                <label style="display:block; margin-top:10px; font-weight:bold;">카테고리</label>
+                <select id="set-store-cat" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; margin-bottom:20px;">
+                    <option value="Food">Food (맛집)</option>
+                    <option value="Cafe">Cafe (카페)</option>
+                    <option value="Activity">Activity (액티비티)</option>
+                </select>
+
+                <button class="btn btn-primary" onclick="saveStoreSettings()">변경사항 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, doc, deleteDoc, onSnapshot, setDoc, updateDoc, getDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAonpP6itJ9_vMlAQm-0oC-fqmhlYMReE4", authDomain: "imake-master.firebaseapp.com", projectId: "imake-master", storageBucket: "imake-master.firebasestorage.app", messagingSenderId: "612892096078", appId: "1:612892096078:web:5a573c1a0dceb525eaf51f" };
+        const app = initializeApp(firebaseConfig);
+        
+        window.auth = getAuth(app); window.db = getFirestore(app); window.provider = new GoogleAuthProvider();
+        window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
+        window.collection = collection; window.doc = doc; window.setDoc = setDoc; window.deleteDoc = deleteDoc; window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.getDoc = getDoc; window.query = query; window.where = where; window.getDocs = getDocs;
+    </script>
+    <script src="pscript.js" defer></script>
+</body>
+</html>

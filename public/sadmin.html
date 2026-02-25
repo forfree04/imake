@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>imake 관리자 대시보드</title>
+    <link rel="stylesheet" href="https://unpkg.com/lucide@latest">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; margin: 0; background: #f1f5f9; color: #333; }
+        
+        /* [신규] 상단 네비게이션 스타일 */
+        .admin-header { background: white; border-bottom: 1px solid #e2e8f0; padding: 0 30px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .logo { font-size: 20px; font-weight: 900; color: #3b82f6; display: flex; align-items: center; gap: 8px; }
+        .nav-menu { display: flex; gap: 30px; height: 100%; }
+        .nav-item { display: flex; align-items: center; height: 100%; cursor: pointer; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 15px; }
+        .nav-item:hover { color: #3b82f6; }
+        .nav-item.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+        
+        .admin-container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .login-box { max-width: 400px; margin: 100px auto; background: white; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .dashboard { display: none; } /* 로그인 전에는 숨김 */
+        
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        /* 섹션 타이틀 스타일 */
+        .section-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .section-title { font-size: 24px; font-weight: 800; color: #1e293b; }
+        
+        .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+
+        /* 반응형 처리 */
+        @media (max-width: 768px) {
+            .admin-header { flex-direction: column; height: auto; padding: 15px; gap: 15px; }
+            .nav-menu { width: 100%; justify-content: center; gap: 20px; border-top: 1px solid #f1f5f9; padding-top: 10px; }
+            .nav-item { height: 40px; border-bottom: none; border-radius: 6px; padding: 0 10px; }
+            .nav-item.active { background: #eff6ff; border-bottom: none; }
+        }
+    </style>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <!-- 로그인 화면 -->
+    <div id="login-view" class="login-box">
+        <h2>최고 관리자</h2>
+        <p>관리자 계정으로 로그인하세요</p>
+        <button class="btn btn-primary" onclick="adminLogin()">구글 로그인</button>
+    </div>
+
+    <!-- 대시보드 화면 -->
+    <div id="dashboard-view" class="admin-container dashboard">
+        <!-- [신규] 상단 네비게이션 바 -->
+        <div class="admin-header">
+            <div class="logo"><i data-lucide="shield-check"></i> imake 관리자</div>
+            <div class="nav-menu">
+                <div class="nav-item active" onclick="switchView('dashboard')" id="nav-dashboard">대시보드</div>
+                <div class="nav-item" onclick="switchView('partners')" id="nav-partners">파트너 관리</div>
+                <div class="nav-item" onclick="switchView('users')" id="nav-users">회원 관리</div>
+            </div>
+            <button class="btn btn-danger" onclick="adminLogout()" style="padding: 8px 16px; font-size: 13px;">로그아웃</button>
+        </div>
+        
+        <div class="admin-container">
+            <!-- 1. Dashboard View -->
+            <div id="view-dashboard" class="view-section">
+                <div class="section-header">
+                    <div class="section-title">현황 개요</div>
+                    <div style="color:#64748b; font-size:14px;">오늘: <span id="today-date"></span></div>
+                </div>
+                
+                <!-- 1. 상단: 핵심 요약 (KPI) -->
+                <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-bottom: 20px;">
+                    <div class="card">
+                        <div style="color:#64748b; font-size:14px; font-weight:bold;">총 회원수</div>
+                        <div style="font-size:28px; font-weight:900; margin:5px 0;" id="kpi-users">-</div>
+                        <div style="font-size:12px; color:#10b981;">▲ <span id="kpi-users-inc">0</span> (전일 대비)</div>
+                    </div>
+                    <div class="card" style="border-left: 4px solid #3b82f6;">
+                        <div style="color:#3b82f6; font-size:14px; font-weight:bold;">유료 회원 비율</div>
+                        <div style="font-size:28px; font-weight:900; margin:5px 0;" id="kpi-paid-ratio">0%</div>
+                        <div style="font-size:12px; color:#64748b;">목표: 20%</div>
+                    </div>
+                    <div class="card">
+                        <div style="color:#64748b; font-size:14px; font-weight:bold;">총 파트너 수</div>
+                        <div style="font-size:28px; font-weight:900; margin:5px 0;" id="kpi-partners">-</div>
+                        <div style="font-size:12px; color:#64748b;">운영 중인 매장</div>
+                    </div>
+                    <div class="card">
+                        <div style="color:#64748b; font-size:14px; font-weight:bold;">오늘의 거래액</div>
+                        <div style="font-size:28px; font-weight:900; margin:5px 0; color:#ef4444;">₩ <span id="kpi-gmv">0</span></div>
+                        <div style="font-size:12px; color:#64748b;">총 결제 규모</div>
+                    </div>
+                </div>
+
+                <!-- 2. 중단: 차트 & 분석 -->
+                <div class="card-grid" style="margin-bottom: 20px;">
+                    <div class="card">
+                        <h3>파트너 카테고리 분포</h3>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="chart-category"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>사용자 국적 비율</h3>
+                        <div style="position: relative; height: 300px; width: 100%;">
+                            <canvas id="chart-nation"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 하단: 운영 (승인 대기) -->
+                <div class="card">
+                    <h3>승인 대기 파트너</h3>
+                    <div id="dashboard-pending-list">Loading...</div>
+                </div>
+            </div>
+
+            <!-- 2. Partners View -->
+            <div id="view-partners" class="view-section" style="display:none;">
+                <div class="section-header"><div class="section-title">파트너 관리</div></div>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <h3>전체 파트너 목록</h3>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn btn-primary" onclick="openPartnerModal()">+ 파트너 추가</button>
+                            <button class="btn" style="background:#10b981; color:white;" onclick="triggerBulkUpload()">📂 일괄 등록 (CSV/Excel/XML)</button>
+                            <input type="file" id="bulk-upload" accept=".csv, .xlsx, .xls, .xml" style="display:none" onchange="handleBulkUpload(this)">
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table style="min-width: 800px;">
+                            <thead>
+                                <tr><th>업체명</th><th>카테고리</th><th>전화번호</th><th>상태</th><th>관리</th></tr>
+                            </thead>
+                            <tbody id="partners-table-body">
+                                <!-- Partner rows will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Users View -->
+            <div id="view-users" class="view-section" style="display:none;">
+                <div class="section-header"><div class="section-title">회원 관리</div></div>
+                <div class="card">
+                    <h3>전체 가입 회원</h3>
+                    <div id="user-list">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [신규] 히스토리 상세 모달 -->
+    <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                <h3 id="history-modal-title" style="margin:0;">히스토리</h3>
+                <button onclick="closeHistoryModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <div id="history-modal-content" style="overflow-y:auto; flex:1;">Loading...</div>
+        </div>
+    </div>
+
+    <!-- [신규] 히스토리 상세 모달 -->
+    <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                <h3 id="history-modal-title" style="margin:0;">History</h3>
+                <button onclick="closeHistoryModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <div id="history-modal-content" style="overflow-y:auto; flex:1;">Loading...</div>
+        </div>
+    </div>
+
+    <!-- [신규] 파트너 수동 등록 모달 -->
+    <div id="partner-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+        <div style="background:white; padding:30px; border-radius:12px; width:90%; max-width:500px;">
+            <h3 id="partner-modal-title" style="margin-top:0;">새 파트너 등록</h3>
+            <input type="hidden" id="partner-id">
+            <p style="color:#666; font-size:14px; margin-bottom:20px;">매장 정보를 직접 입력하여 등록합니다.</p>
+            
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">업체명</label>
+            <input type="text" id="new-partner-store" placeholder="업체명">
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">카테고리</label>
+            <input type="text" id="new-partner-cat" placeholder="Food, Cafe 등">
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">주소 (좌표 자동 검색)</label>
+            <input type="text" id="new-partner-addr" placeholder="주소 (예: 서울 중구 세종대로 110)">
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">전화번호</label>
+            <input type="text" id="new-partner-phone" placeholder="010-xxxx-xxxx">
+
+            <h4 style="margin-top:20px; margin-bottom:10px; border-top:1px solid #eee; padding-top:10px;">대표 메뉴</h4>
+            <input type="text" id="new-partner-menu-name" placeholder="메뉴명" style="margin-bottom:5px;">
+            <input type="number" id="new-partner-menu-price" placeholder="가격 (원)">
+
+            <div style="display:flex; gap:10px; margin-top:25px;">
+                <button onclick="closePartnerModal()" class="btn" style="flex:1; background:#eee;">취소</button>
+                <button onclick="savePartner()" class="btn btn-primary" style="flex:1;">파트너 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK 및 초기화 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, doc, deleteDoc, onSnapshot, setDoc, updateDoc, getDoc, getDocs, deleteField, query, where, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // index.html과 동일한 설정 사용
+        const firebaseConfig = { apiKey: "AIzaSyAonpP6itJ9_vMlAQm-0oC-fqmhlYMReE4", authDomain: "imake-master.firebaseapp.com", projectId: "imake-master", storageBucket: "imake-master.firebasestorage.app", messagingSenderId: "612892096078", appId: "1:612892096078:web:5a573c1a0dceb525eaf51f" };
+        const app = initializeApp(firebaseConfig);
+        
+        // sscript.js에서 사용할 수 있게 window 객체에 할당
+        window.auth = getAuth(app); window.db = getFirestore(app); window.provider = new GoogleAuthProvider();
+        window.signInWithPopup = signInWithPopup; window.signOut = signOut; window.onAuthStateChanged = onAuthStateChanged;
+        window.collection = collection; window.doc = doc; window.setDoc = setDoc; window.deleteDoc = deleteDoc; window.onSnapshot = onSnapshot; window.updateDoc = updateDoc; window.getDoc = getDoc; window.getDocs = getDocs; window.deleteField = deleteField; window.query = query; window.where = where; window.addDoc = addDoc;
+    </script>
+    <script src="sscript.js" defer></script>
+</body>
+</html>

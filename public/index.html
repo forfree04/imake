@@ -6,6 +6,7 @@
     <title>imake</title>
     <link rel="stylesheet" href="style.css?v=final_v1">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
@@ -131,6 +132,17 @@
                     </div>
                 </div>
 
+                <div class="section-header" style="margin-top:20px; margin-bottom:10px; padding:0 20px;">
+                    <h3 style="font-size:16px; margin:0;">내 주변 탐색</h3>
+                </div>
+
+                <div class="map-wrapper" style="position: relative; width: 100%; height: 250px; margin-bottom: 15px;">
+                    <div id="map" style="width: 100%; height: 100%;"></div>
+                    <button class="my-location-btn" onclick="findMyLocation()" title="Find My Location">
+                        <i data-lucide="crosshair"></i>
+                    </button>
+                </div>
+
                 <div class="category-scroll">
                     <button class="cat-btn active" onclick="filterCategory('all')"><i data-lucide="layers"></i> <span data-i18n="cat_all">All</span></button>
                     <button class="cat-btn" onclick="filterCategory('food')"><i data-lucide="utensils"></i> <span data-i18n="cat_food">Food</span></button>
@@ -138,13 +150,6 @@
                     <button class="cat-btn" onclick="filterCategory('store')"><i data-lucide="store"></i> <span data-i18n="cat_store">Store</span></button>
                     <button class="cat-btn" onclick="filterCategory('beauty')"><i data-lucide="scissors"></i> <span data-i18n="cat_beauty">Beauty</span></button>
                     <button class="cat-btn" onclick="filterCategory('activity')"><i data-lucide="ticket"></i> <span data-i18n="cat_activity">Activity</span></button>
-                </div>
-
-                <div class="map-wrapper" style="position: relative; width: 100%; height: 400px;">
-                    <div id="map" style="width: 100%; height: 100%;"></div>
-                    <button class="my-location-btn" onclick="findMyLocation()" title="Find My Location">
-                        <i data-lucide="crosshair"></i>
-                    </button>
                 </div>
 
                 <div class="rec-section">
@@ -266,6 +271,7 @@
                     <h2 style="margin-bottom:10px;">주문 접수 중...</h2>
                     <p style="color:#888; margin-bottom:30px;">주방에서 주문을 확인하고 있습니다.<br>잠시만 기다려주세요.</p>
                     <div id="waiting-timer" style="font-size:24px; font-weight:bold; color:#3b82f6;">00:00</div>
+                    <button id="btn-go-home" onclick="navigateTo('home')" style="display:none; margin-top:30px; padding:15px 30px; background:#3b82f6; color:white; border:none; border-radius:12px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow:0 4px 12px rgba(59, 130, 246, 0.3);">홈으로 이동</button>
                 </div>
             </div>
 
@@ -286,8 +292,55 @@
                         <input type="password" id="login-password" placeholder="Password" style="padding: 14px; border-radius: 10px; border: 1px solid #ddd; outline: none;">
                         <button onclick="handleEmailLogin()" style="background: #3b82f6; color: #fff; border: none; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer;">Log In</button>
                     </div>
+                    <div style="text-align: right; margin-top: 10px;">
+                        <span onclick="openResetPwModal()" style="font-size: 13px; color: #666; cursor: pointer; text-decoration: underline;">Forgot Password?</span>
+                    </div>
                     <div style="margin-top: 25px; font-size: 14px; color: #666;">
                         Don't have an account? <span onclick="navigateTo('signup')" style="color: #3b82f6; font-weight: bold; cursor: pointer;">Sign Up</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-onboarding" class="page">
+                <div class="signup-container" style="padding: 40px 20px;">
+                    <h2 style="margin-bottom: 10px;">Welcome to imake!</h2>
+                    <p style="color:#666; margin-bottom:30px;">더 나은 추천을 위해 추가 정보를 입력해주세요.</p>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                        <div>
+                            <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">Country</label>
+                            <select id="ob-country" style="width:100%; padding: 14px; border-radius: 10px; border: 1px solid #ddd;">
+                                <option value="">Select Country</option>
+                                <option value="USA">USA</option>
+                                <option value="Japan">Japan</option>
+                                <option value="China">China</option>
+                                <option value="Korea">Korea</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">Phone Number</label>
+                            <input type="tel" id="ob-phone" placeholder="+82 10-1234-5678" style="width:100%; padding: 14px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box;">
+                        </div>
+
+                        <div>
+                            <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">Preferred Activity</label>
+                            <select id="ob-activity" style="width:100%; padding: 14px; border-radius: 10px; border: 1px solid #ddd;">
+                                <option value="Shopping">Shopping</option>
+                                <option value="Food Tour">Food Tour</option>
+                                <option value="Sightseeing">Sightseeing</option>
+                                <option value="Activity">Activity</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-weight:bold; font-size:14px; display:block; margin-bottom:5px;">Favorite Food</label>
+                            <input type="text" id="ob-food" placeholder="e.g. Kimchi, Bulgogi" style="width:100%; padding: 14px; border-radius: 10px; border: 1px solid #ddd; box-sizing: border-box;">
+                        </div>
+
+                        <button onclick="saveOnboarding()" style="background: #3b82f6; color: #fff; border: none; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 20px; cursor: pointer;">Start Journey</button>
+                        <button onclick="navigateTo('home')" style="background: none; color: #999; border: none; padding: 10px; font-size: 14px; cursor: pointer;">Skip for now</button>
                     </div>
                 </div>
             </div>
@@ -299,6 +352,8 @@
                     <div style="display: flex; flex-direction: column; gap: 15px;">
                         <input type="text" id="signup-name" placeholder="Full Name (English)" style="padding: 14px; border-radius: 10px; border: 1px solid #ddd;">
                         <input type="email" id="signup-email" placeholder="Email Address" style="padding: 14px; border-radius: 10px; border: 1px solid #ddd;">
+                        <input type="password" id="signup-password" placeholder="Password (6+ characters)" style="padding: 14px; border-radius: 10px; border: 1px solid #ddd;">
+                        <input type="password" id="signup-password-confirm" placeholder="Confirm Password" style="padding: 14px; border-radius: 10px; border: 1px solid #ddd;">
                         <button onclick="handleSignUp()" style="background: #3b82f6; color: #fff; border: none; padding: 16px; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 10px; cursor: pointer;">Sign Up</button>
                     </div>
                 </div>
@@ -356,10 +411,43 @@
         <div id="qr-modal" class="modal-overlay" onclick="closeModal('qr-modal')">
             <div class="modal-content qr-content" onclick="event.stopPropagation()">
                 <button class="modal-close" onclick="closeModal('qr-modal')"><i data-lucide="x"></i></button>
-                <h3>MEMBERSHIP PASS</h3>
-                <div class="qr-code-box"><i data-lucide="qr-code" style="width:150px; height:150px;"></i></div>
+                <h3 style="margin-bottom:5px;">MEMBERSHIP PASS</h3>
+                <div id="qr-status-msg" style="margin-bottom:15px; font-size:14px; color:#666;">멤버십 상태를 확인 중...</div>
+                
+                <div class="qr-code-box" id="qr-code-view" style="transition:0.3s; filter:blur(8px); opacity:0.5; display:flex; justify-content:center; align-items:center; background:white; padding:15px; border-radius:12px;">
+                    <!-- QR Code Rendered Here -->
+                </div>
+                <div id="qr-time-display" style="text-align:center; margin-top:10px; font-weight:bold; color:#3b82f6; font-size:14px;"></div>
+                <div id="qr-timer-display" style="text-align:center; margin-top:5px; font-weight:900; font-size:20px; color:#10b981;"></div>
+                <button onclick="generateQRCode()" style="margin:15px auto 0; display:block; padding:8px 16px; background:#f1f5f9; border:1px solid #ddd; border-radius:20px; cursor:pointer; font-size:12px; color:#555;">🔄 Refresh QR</button>
+
+                <div id="payment-area" style="margin-top:20px; width:100%;">
+                    <p style="font-size:13px; color:#888; margin-bottom:10px;">멤버십에 가입하고 QR코드를 활성화하세요.</p>
+                    <button onclick="simulatePayment()" style="width:100%; padding:14px; background:#3b82f6; color:white; border:none; border-radius:10px; font-weight:bold; font-size:16px; cursor:pointer; box-shadow:0 4px 6px rgba(59,130,246,0.3);">₩ 30,000 결제하기 (Test)</button>
+                </div>
             </div>
         </div>
+        
+        <!-- [신규] 비밀번호 재설정 모달 -->
+        <div id="modal-reset-pw" class="modal-overlay" onclick="closeModal('modal-reset-pw')">
+            <div class="modal-content auto-height" onclick="event.stopPropagation()" style="padding: 20px; width: 85%; max-width: 320px;">
+                <h3 style="margin-top:0;">Reset Password</h3>
+                <p style="color:#666; font-size:14px; margin-bottom:15px;">가입한 이메일 주소를 입력하시면 비밀번호 재설정 링크를 보내드립니다.</p>
+                <input type="email" id="reset-email" placeholder="Email Address" style="width:100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; margin-bottom:15px; box-sizing: border-box;">
+                <button onclick="handlePasswordReset()" style="width:100%; padding:12px; background:#3b82f6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">Send Link</button>
+            </div>
+        </div>
+
+        <!-- [신규] 온보딩 유도 모달 -->
+        <div id="modal-onboarding-reminder" class="modal-overlay" onclick="closeModal('modal-onboarding-reminder')">
+            <div class="modal-content auto-height" onclick="event.stopPropagation()" style="padding: 25px; width: 85%; max-width: 320px; text-align:center;">
+                <h3 style="margin-top:0;">✨ Better Recommendations?</h3>
+                <p style="color:#666; font-size:14px; margin-bottom:20px;">취향 정보를 입력하면 딱 맞는 맛집과 여행지를 추천해 드려요!</p>
+                <button onclick="navigateTo('onboarding'); closeModal('modal-onboarding-reminder');" style="width:100%; padding:12px; background:#3b82f6; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">입력하러 가기</button>
+                <button onclick="closeModal('modal-onboarding-reminder')" style="background:none; border:none; color:#999; margin-top:10px; cursor:pointer; font-size:13px;">나중에 하기</button>
+            </div>
+        </div>
+
         <div id="lang-modal" class="modal-overlay" onclick="closeModal('lang-modal')">
             <div class="modal-content lang-content" onclick="event.stopPropagation()">
                 <h3>Select Language</h3>
@@ -387,6 +475,18 @@
             </div>
         </div>
 
+        <!-- [개편] Food 카테고리 모달 (Tab + List) -->
+        <div id="modal-food-menu" class="modal-overlay" onclick="closeModal('modal-food-menu')">
+            <div class="modal-content" onclick="event.stopPropagation()" style="width: 90%; max-width: 430px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px; background: #f8f9fa;">
+                <div class="modal-header-row" style="flex-shrink: 0;">
+                    <h3>Food Menu</h3>
+                    <button onclick="closeModal('modal-food-menu')"><i data-lucide="x"></i></button>
+                </div>
+                <div id="food-tabs" style="display: flex; overflow-x: auto; background: white; padding: 0 10px; border-bottom: 1px solid #eee; flex-shrink: 0; white-space: nowrap; -webkit-overflow-scrolling: touch;"></div>
+                <div id="food-content" class="modal-body-scroll" style="flex: 1; padding: 15px;"></div>
+            </div>
+        </div>
+
         <nav class="bottom-nav">
             <div class="nav-inner">
                 <button class="nav-item active" onclick="navigateTo('home')"><i data-lucide="home"></i><span data-i18n="nav_home">Home</span></button>
@@ -407,8 +507,8 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, getDoc, doc, deleteDoc, updateDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAonpP6itJ9_vMlAQm-0oC-fqmhlYMReE4",
@@ -429,6 +529,7 @@
         window.collection = collection;
         window.addDoc = addDoc;
         window.getDocs = getDocs;
+        window.getDoc = getDoc;
         window.doc = doc;
         window.deleteDoc = deleteDoc;
         window.updateDoc = updateDoc;
@@ -438,6 +539,10 @@
         window.signInWithPopup = signInWithPopup;
         window.onAuthStateChanged = onAuthStateChanged;
         window.signOut = signOut;
+        window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.updateProfile = updateProfile;
+        window.sendPasswordResetEmail = sendPasswordResetEmail;
 
         console.log("🔥 Firebase Initialized Correctly");
     </script>

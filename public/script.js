@@ -17,17 +17,14 @@ let markers = [];     // 지도 마커 배열
 let userMarker = null; // [보완] 위치 마커 변수 선언 (누락 방지)
 
 let userMembershipType = 'free'; // [신규] 멤버십 상태 ('free' or 'paid')
+let isTrialActive = false; // [신규] 체험판 활성화 여부
+let userPreferences = {}; // [신규] 사용자 선호도
 // [신규] 주문 시스템 변수
 let currentTable = "";
 let cart = {};
 let confirmedOrders = [];
 let isDutchMode = false; // [신규] 더치페이 모드 상태
-let menuData = [
-    { id: 1, name: { ko: "수원 왕갈비 통닭", en: "Suwon Galbi Chicken", ja: "水原カルビ", zh: "水原炸鸡" }, price: 22000, img: "https://images.unsplash.com/photo-1563127616-52c3f8730b20?w=200" },
-    { id: 2, name: { ko: "후라이드 치킨", en: "Fried Chicken", ja: "フライド", zh: "炸鸡" }, price: 19000, img: "https://images.unsplash.com/photo-1626082927389-6cd097cdc6ec?w=200" },
-    { id: 3, name: { ko: "코카콜라", en: "Coca Cola", ja: "コーラ", zh: "可乐" }, price: 2500, img: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200" },
-    { id: 4, name: { ko: "생맥주 (500cc)", en: "Draft Beer", ja: "ビール", zh: "啤酒" }, price: 4500, img: "https://images.unsplash.com/photo-1586993451228-09818021e309?w=200" }
-];
+let menuData = []; // [변경] DB에서 불러오도록 빈 배열로 초기화
 
 // 페이지 로드 시 실행
 window.onload = function() {
@@ -100,6 +97,17 @@ function initRealtimeListeners() {
         // 최신순 정렬
         historyList.sort((a, b) => b.created - a.created);
         renderHistoryList();
+    });
+
+    // 6. [신규] Menu List (관리자/사용자 공용)
+    window.onSnapshot(window.collection(window.db, "menus"), (snapshot) => {
+        menuData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // ID(숫자) 기준 정렬
+        menuData.sort((a, b) => Number(a.id) - Number(b.id));
+        console.log(`✅ 메뉴 데이터 수신: ${menuData.length}개`);
+        
+        // 메뉴판이 열려있다면 갱신
+        if (document.getElementById('page-order-menu').style.display === 'block') renderOrderMenu();
     });
 }
 
@@ -415,15 +423,26 @@ function initMap() {
     map = L.map('map').setView([37.5665, 126.9780], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
     updateMapMarkers('all');
+
+    // [신규] 지도 로드 시 자동으로 내 위치 찾기
+    findMyLocation();
 }
 
-function updateMapMarkers(category) {
+function updateMapMarkers(category, subCat = null) {
     if (!map) return;
     markers.forEach(m => map.removeLayer(m));
     markers = [];
     const filtered = (category === 'all' || !category) 
         ? recData 
         : recData.filter(item => (item.cat || '').toLowerCase() === category.toLowerCase());
+
+    // [신규] 2차 카테고리(태그) 필터링
+    if (subCat) {
+        filtered = filtered.filter(item => 
+            (item.tags || []).some(t => t.toLowerCase().includes(subCat.toLowerCase()))
+        );
+    }
+
     filtered.forEach(item => {
         if (item.lat && item.lng) {
             const marker = L.marker([item.lat, item.lng]).addTo(map);
@@ -454,12 +473,111 @@ function moveToMap(title, lat, lng) {
     }, 300);
 }
 
+// [변경] 카테고리 버튼 클릭 핸들러
 function filterCategory(category) {
+    if (category === 'food') {
+        openFoodMenuModal();
+    } else {
+        applyCategoryFilter(category);
+    }
+}
+
+// [신규] 실제 필터링 적용 함수 (공통)
+function applyCategoryFilter(category, subCat = null) {
     document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`.cat-btn[onclick*="'${category}'"]`);
     if(activeBtn) activeBtn.classList.add('active');
-    renderRecList(category);
-    updateMapMarkers(category);
+    renderRecList(category, subCat);
+    updateMapMarkers(category, subCat);
+}
+
+// [개편] 3차 카테고리 데이터 및 로직
+const foodData = {
+    'rice': {
+        label: 'Rice (밥)',
+        items: [
+            { name: 'Bibimbap (비빔밥)', desc: 'Mixed rice with vegetables', tag: 'Bibimbap' },
+            { name: 'Gukbap (국밥)', desc: 'Hot soup with rice', tag: 'Gukbap' },
+            { name: 'Fried Rice (볶음밥)', desc: 'Stir-fried rice', tag: 'Fried Rice' }
+        ]
+    },
+    'noodle': {
+        label: 'Noodles (면)',
+        items: [
+            { name: 'Naengmyeon (냉면)', desc: 'Cold buckwheat noodles', tag: 'Naengmyeon' },
+            { name: 'Jajangmyeon (짜장면)', desc: 'Noodles in black bean sauce', tag: 'Jajangmyeon' },
+            { name: 'Kalguksu (칼국수)', desc: 'Hand-cut noodle soup', tag: 'Kalguksu' },
+            { name: 'Ramyeon (라면)', desc: 'Spicy instant noodles', tag: 'Ramyeon' }
+        ]
+    },
+    'soup': {
+        label: 'Soup (국/탕)',
+        items: [
+            { name: 'Kimchi Stew (김치찌개)', desc: 'Spicy stew with kimchi', tag: 'Kimchi Stew' },
+            { name: 'Samgyetang (삼계탕)', desc: 'Ginseng chicken soup', tag: 'Samgyetang' },
+            { name: 'Sundae-guk (순대국)', desc: 'Blood sausage soup', tag: 'Sundae-guk' },
+            { name: 'Gamjatang (감자탕)', desc: 'Pork bone soup', tag: 'Gamjatang' }
+        ]
+    },
+    'bbq': {
+        label: 'BBQ (구이)',
+        items: [
+            { name: 'Samgyeopsal (삼겹살)', desc: 'Grilled pork belly', tag: 'Samgyeopsal' },
+            { name: 'Galbi (갈비)', desc: 'Grilled ribs', tag: 'Galbi' },
+            { name: 'Bulgogi (불고기)', desc: 'Marinated beef', tag: 'Bulgogi' }
+        ]
+    },
+    'street': {
+        label: 'Street (분식)',
+        items: [
+            { name: 'Tteokbokki (떡볶이)', desc: 'Spicy rice cakes', tag: 'Tteokbokki' },
+            { name: 'Sundae (순대)', desc: 'Korean blood sausage', tag: 'Sundae' },
+            { name: 'Gimbap (김밥)', desc: 'Seaweed rice rolls', tag: 'Gimbap' }
+        ]
+    }
+};
+
+function openFoodMenuModal() {
+    const modal = document.getElementById('modal-food-menu');
+    const tabsContainer = document.getElementById('food-tabs');
+    
+    tabsContainer.innerHTML = Object.keys(foodData).map(key => `
+        <button onclick="switchFoodTab('${key}')" class="food-tab-btn" id="tab-${key}" style="padding: 15px 10px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: bold; color: #888; cursor: pointer; margin-right: 10px;">
+            ${foodData[key].label}
+        </button>
+    `).join('');
+
+    modal.style.display = 'flex';
+    switchFoodTab('rice'); // Default tab
+}
+
+function switchFoodTab(key) {
+    document.querySelectorAll('.food-tab-btn').forEach(btn => { btn.style.borderBottomColor = 'transparent'; btn.style.color = '#888'; });
+    const activeBtn = document.getElementById(`tab-${key}`);
+    if(activeBtn) { activeBtn.style.borderBottomColor = '#3b82f6'; activeBtn.style.color = '#3b82f6'; }
+
+    const contentContainer = document.getElementById('food-content');
+    const items = foodData[key].items || [];
+    
+    contentContainer.innerHTML = items.map(item => `
+        <div onclick="selectFoodItem('${item.tag}')" style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer;">
+            <div style="width: 60px; height: 60px; background: #eee; border-radius: 8px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#ccc;"><i data-lucide="utensils"></i></div>
+            <div>
+                <div style="font-weight: bold; font-size: 16px;">${item.name}</div>
+                <div style="font-size: 13px; color: #666; margin-top: 4px;">${item.desc}</div>
+            </div>
+        </div>
+    `).join('') + `
+        <button onclick="selectFoodItem('${key}')" style="width: 100%; padding: 15px; background: #e0f2fe; color: #0284c7; border: none; border-radius: 12px; font-weight: bold; margin-top: 10px; cursor: pointer;">
+            View All ${foodData[key].label}
+        </button>
+    `;
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function selectFoodItem(tag) {
+    closeModal('modal-food-menu');
+    applyCategoryFilter('food', tag);
 }
 
 /* ==========================================================
@@ -507,7 +625,7 @@ function closeSideMenu() {
 }
 
 window.onclick = function(event) {
-    const modals = ['qr-modal', 'lang-modal', 'modal-todo', 'modal-fav', 'modal-sched', 'modal-edit-popup', 'modal-detail', 'modal-bill'];
+    const modals = ['qr-modal', 'lang-modal', 'modal-todo', 'modal-fav', 'modal-sched', 'modal-edit-popup', 'modal-detail', 'modal-bill', 'modal-reset-pw', 'modal-onboarding-reminder', 'modal-food-menu'];
     modals.forEach(id => {
         const m = document.getElementById(id);
         if (m && event.target === m) m.style.display = "none";
@@ -521,7 +639,13 @@ function openFavModal() { renderFavList(); openModal('modal-fav'); }
 function openScheduleModal() { renderSchedList(); openModal('modal-sched'); }
 function openModal(id) { document.getElementById(id).style.display='flex'; }
 function closeModal(id) { document.getElementById(id).style.display='none'; }
-function openQRModal() { document.getElementById('qr-modal').style.display = 'flex'; }
+
+function openQRModal() { 
+    document.getElementById('qr-modal').style.display = 'flex'; 
+    updateQRModalUI(); // 모달 열 때 UI 상태 갱신
+    generateQRCode(); // [신규] QR 코드 생성 및 DB 저장
+}
+
 function openLangModal() { document.getElementById('lang-modal').style.display = 'flex'; }
 
 function findMyLocation() {
@@ -553,6 +677,198 @@ async function getAddressFromCoords(lat, lng) {
         }
     } catch (e) {
         console.error("주소 변환 실패:", e);
+    }
+}
+
+/* ==========================================================
+   [신규] 결제 및 멤버십 관리 로직
+   ========================================================== */
+
+async function checkMembershipStatus(uid) {
+    try {
+        const userDocRef = window.doc(window.db, "users", uid);
+        const userDoc = await window.getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+            const data = userDoc.data();
+
+            // [신규] 사용자 선호도 정보 저장
+            userPreferences = {
+                activity: data.activity,
+                food: data.food,
+                country: data.country
+            };
+            let membership = data.membership;
+            
+            // 1. 신규 유저(멤버십 정보 없음) -> 1-Day Free 자동 시작
+            if (!membership) {
+                membership = 'free_trial';
+                const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24시간
+                await window.updateDoc(userDocRef, { 
+                    membership: 'free_trial',
+                    freeTrialExpiresAt: expiresAt
+                });
+                data.membership = 'free_trial';
+                data.freeTrialExpiresAt = expiresAt;
+                alert("🎉 가입 축하 선물!\n24시간 동안 유료 멤버십 혜택이 무료로 제공됩니다.");
+            }
+
+            // 2. 상태 체크
+            isTrialActive = false;
+            if (membership === 'paid') {
+                userMembershipType = 'paid';
+            } else if (membership === 'free_trial') {
+                if (data.freeTrialExpiresAt > Date.now()) {
+                    userMembershipType = 'paid'; // 혜택 적용
+                    isTrialActive = true;
+                    console.log("🎁 1-Day Free 적용 중");
+                } else {
+                    // 만료됨 -> free로 강등
+                    await window.updateDoc(userDocRef, { membership: 'free' });
+                    userMembershipType = 'free';
+                    alert("1-Day Free 체험이 종료되었습니다.\n계속 혜택을 받으려면 멤버십을 구독하세요.");
+                }
+            } else {
+                userMembershipType = 'free';
+            }
+
+            // 3. 온보딩 미완료 시 팝업 (홈 화면일 때만)
+            if (!data.onboardingCompleted && document.getElementById('page-home').style.display === 'block') {
+                setTimeout(() => openModal('modal-onboarding-reminder'), 1500);
+            }
+        }
+        // [신규] 사용자 선호도에 따라 추천 리스트 필터링
+        applyUserPreferences();
+        renderOrderMenu(); // 메뉴판 가격 갱신
+        updateQRModalUI(); // QR 모달 상태 갱신
+    } catch (e) {
+        console.error("멤버십 확인 실패:", e);
+    }
+}
+
+async function simulatePayment() {
+    const user = window.auth.currentUser;
+    if (!user) return alert("로그인이 필요합니다.");
+
+    if (!confirm("30,000원을 결제하시겠습니까? (테스트)")) return;
+
+    try {
+        // DB에 'paid' 상태 기록
+        await window.setDoc(window.doc(window.db, "users", user.uid), {
+            membership: 'paid',
+            updatedAt: Date.now(),
+            email: user.email
+        }, { merge: true });
+
+        alert("결제가 완료되었습니다! 🎉\n이제 QR 코드가 활성화됩니다.");
+        checkMembershipStatus(user.uid); // 상태 즉시 갱신
+    } catch (e) {
+        console.error(e);
+        alert("결제 처리 중 오류가 발생했습니다.");
+    }
+}
+
+/* ==========================================================
+   [신규] QR 코드 생성 및 DB 연동
+   ========================================================== */
+let qrTimerInterval = null;
+
+async function generateQRCode() {
+    const user = window.auth.currentUser;
+    const qrContainer = document.getElementById('qr-code-view');
+    const timeDisplay = document.getElementById('qr-time-display');
+    const timerDisplay = document.getElementById('qr-timer-display');
+    
+    if (!user || !qrContainer) return;
+
+    // 멤버십 확인 (무료 회원은 QR 생성 안 함)
+    if (userMembershipType !== 'paid') {
+        if(timeDisplay) timeDisplay.innerText = "";
+        if(timerDisplay) timerDisplay.innerText = "";
+        return;
+    }
+
+    // 1. QR 데이터 생성 (UID + 현재 시간)
+    const now = new Date();
+    const timestamp = now.getTime();
+    const qrData = JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        timestamp: timestamp
+    });
+
+    // 2. 화면에 QR 그리기
+    qrContainer.innerHTML = ""; // 기존 QR 초기화
+    if (typeof QRCode !== 'undefined') {
+        new QRCode(qrContainer, {
+            text: qrData,
+            width: 150,
+            height: 150,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.H
+        });
+    }
+    
+    // UI 초기화 (블러 제거)
+    qrContainer.style.filter = 'none';
+    qrContainer.style.opacity = '1';
+    timeDisplay.innerText = now.toLocaleString(); // 연월일 시간 표시
+
+    // 4. 40초 타이머 시작
+    if (qrTimerInterval) clearInterval(qrTimerInterval);
+    let timeLeft = 40;
+    
+    const updateTimer = () => {
+        if (timerDisplay) {
+            timerDisplay.innerText = `${timeLeft}s`;
+            timerDisplay.style.color = timeLeft <= 10 ? '#ef4444' : '#10b981'; // 10초 이하 빨간색
+        }
+    };
+    updateTimer();
+
+    qrTimerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimer();
+        if (timeLeft <= 0) {
+            clearInterval(qrTimerInterval);
+            if (timerDisplay) timerDisplay.innerText = "Expired";
+            qrContainer.style.filter = 'blur(15px)'; // 만료 시 블러 처리
+            qrContainer.style.opacity = '0.2';
+        }
+    }, 1000);
+
+    // 3. Super Admin 관리를 위해 DB에 저장
+    try {
+        await window.setDoc(window.doc(window.db, "active_qrs", user.uid), {
+            uid: user.uid,
+            email: user.email,
+            qrData: qrData,
+            generatedAt: timestamp,
+            status: 'active'
+        });
+    } catch (e) {
+        console.error("QR DB 저장 실패:", e);
+    }
+}
+
+function updateQRModalUI() {
+    const qrView = document.getElementById('qr-code-view');
+    const payArea = document.getElementById('payment-area');
+    const statusMsg = document.getElementById('qr-status-msg');
+
+    if (userMembershipType === 'paid') {
+        qrView.style.filter = 'none'; // 블러 제거
+        qrView.style.opacity = '1';
+        payArea.style.display = 'none'; // 결제 버튼 숨김
+        statusMsg.innerHTML = isTrialActive 
+            ? '<span style="color:#3b82f6; font-weight:bold;">1-Day Free Pass</span> (체험 중)' 
+            : '<span style="color:#10b981; font-weight:bold;">Active Pass</span> (유효함)';
+    } else {
+        qrView.style.filter = 'blur(8px)'; // 블러 처리
+        qrView.style.opacity = '0.5';
+        payArea.style.display = 'block'; // 결제 버튼 표시
+        statusMsg.innerHTML = '<span style="color:#ef4444; font-weight:bold;">Inactive</span> (결제 필요)';
     }
 }
 
@@ -590,7 +906,7 @@ async function handleLogout() {
 
 // 3. 사용자 상태 실시간 감시 (이름 변경 로직)
 function initAuthListener() {
-    window.onAuthStateChanged(window.auth, (user) => {
+    window.onAuthStateChanged(window.auth, async (user) => {
         const userNameElem = document.getElementById('display-user-name');
         const userStatusElem = document.querySelector('.user-status');
         const userProfileDiv = document.querySelector('.user-profile');
@@ -603,11 +919,17 @@ function initAuthListener() {
             // 로그인 후엔 프로필 버튼을 눌렀을 때 'profile' 페이지로 가게 변경
             if(userProfileDiv) userProfileDiv.setAttribute('onclick', "navigateTo('profile')");
             
-            // [신규] 로그인 시 유료 회원으로 간주 및 메뉴판 갱신
-            userMembershipType = 'paid';
-            renderOrderMenu();
-            
-            console.log("👤 현재 유저:", user.displayName);
+            // [순서 변경] 사용자 정보 DB 저장 먼저 (문서 생성 보장)
+            await window.setDoc(window.doc(window.db, "users", user.uid), {
+                email: user.email,
+                displayName: user.displayName,
+                lastLogin: Date.now()
+            }, { merge: true });
+
+            // [변경] DB에서 실제 멤버십 상태 확인 (1-Day Free 로직 포함)
+            checkMembershipStatus(user.uid);
+
+            console.log("� 현재 유저:", user.displayName);
         } else {
             // 로그아웃 상태 (초기화)
             if(userNameElem) userNameElem.innerText = "Guest Traveler";
@@ -616,10 +938,14 @@ function initAuthListener() {
             // 로그아웃 상태에선 다시 'login' 페이지로 가게 변경
             if(userProfileDiv) userProfileDiv.setAttribute('onclick', "navigateTo('login')");
             
-            // [신규] 로그아웃 시 무료 회원으로 전환 및 메뉴판 갱신
+            // [신규] 로그아웃 시 상태 초기화
             userMembershipType = 'free';
+            isTrialActive = false;
+            userPreferences = {}; // 선호도 초기화
+            if (document.getElementById('page-home').style.display === 'block') filterCategory('all'); // 홈화면일 경우 추천 리스트 리셋
+
             renderOrderMenu();
-            
+
             console.log("🚪 로그아웃 상태");
         }
     });
@@ -775,14 +1101,109 @@ function changeLanguage(lang) {
     closeModal('lang-modal');
 }
 
-function handleEmailLogin() {
+async function handleEmailLogin() {
     const email = document.getElementById('login-email').value;
-    if(!email) return alert("이메일을 입력해주세요.");
-    alert(`이메일 로그인 시도: ${email} (백엔드 연동 필요)`);
+    const password = document.getElementById('login-password').value;
+    if(!email || !password) return alert("이메일과 비밀번호를 입력해주세요.");
+    
+    try {
+        await window.signInWithEmailAndPassword(window.auth, email, password);
+        // 성공 시 onAuthStateChanged가 호출되어 UI가 갱신됩니다.
+        navigateTo('home');
+    } catch (e) {
+        alert("로그인 실패: " + e.message);
+    }
 }
 
-function handleSignUp() {
-    alert("회원가입 기능은 준비 중입니다.");
+function openResetPwModal() {
+    document.getElementById('modal-reset-pw').style.display = 'flex';
+}
+
+async function handlePasswordReset() {
+    const email = document.getElementById('reset-email').value;
+    if (!email) return alert("이메일을 입력해주세요.");
+    
+    try {
+        await window.sendPasswordResetEmail(window.auth, email);
+        alert("비밀번호 재설정 이메일을 보냈습니다. 메일함을 확인해주세요.");
+        closeModal('modal-reset-pw');
+    } catch (e) {
+        console.error(e);
+        alert("이메일 전송 실패: " + e.message);
+    }
+}
+
+async function handleSignUp() {
+    const name = document.getElementById('signup-name').value;
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+    const confirmPassword = document.getElementById('signup-password-confirm').value;
+
+    if(!name || !email || !password || !confirmPassword) return alert("모든 정보를 입력해주세요.");
+    if(password !== confirmPassword) return alert("비밀번호가 일치하지 않습니다.");
+
+    try {
+        const result = await window.createUserWithEmailAndPassword(window.auth, email, password);
+        const user = result.user;
+        
+        // 프로필 업데이트 (이름 설정)
+        await window.updateProfile(user, { displayName: name });
+        
+        alert("회원가입이 완료되었습니다! 추가 정보를 입력해주세요.");
+        navigateTo('onboarding');
+    } catch (e) {
+        console.error(e);
+        alert("회원가입 실패: " + e.message);
+    }
+}
+
+function applyUserPreferences() {
+    // 홈 화면이 아니면 실행 안 함
+    if (document.getElementById('page-home').style.display !== 'block') return;
+
+    const activity = userPreferences.activity;
+    let category = 'all'; // 기본값
+
+    if (activity) {
+        switch (activity) {
+            case 'Shopping':    category = 'store'; break;
+            case 'Food Tour':   category = 'food'; break;
+            case 'Sightseeing': category = 'activity'; break; // 관광은 액티비티로
+            case 'Activity':    category = 'activity'; break;
+            default:            category = 'all';
+        }
+        console.log(`👤 선호도(${activity})에 따라 '${category}' 카테고리를 표시합니다.`);
+    }
+    
+    // 기존 필터 함수를 호출하여 UI 일관성 유지
+    // (리스트, 지도, 버튼 상태를 모두 업데이트)
+    // [변경] 자동 적용 시에는 모달을 띄우지 않도록 applyCategoryFilter 직접 호출
+    applyCategoryFilter(category);
+}
+
+async function saveOnboarding() {
+    const user = window.auth.currentUser;
+    if (!user) return alert("로그인 상태가 아닙니다.");
+
+    const country = document.getElementById('ob-country').value;
+    const phone = document.getElementById('ob-phone').value;
+    const activity = document.getElementById('ob-activity').value;
+    const food = document.getElementById('ob-food').value;
+
+    try {
+        // 사용자 정보 업데이트 (기존 정보 유지하며 병합)
+        await window.setDoc(window.doc(window.db, "users", user.uid), {
+            country, phone, activity, food,
+            onboardingCompleted: true,
+            updatedAt: Date.now()
+        }, { merge: true });
+        
+        alert("정보가 저장되었습니다. 환영합니다!");
+        navigateTo('home');
+    } catch(e) {
+        console.error(e);
+        alert("저장 실패: " + e.message);
+    }
 }
 
 function copyLocation() {
@@ -830,6 +1251,37 @@ function checkTableNum() {
     document.getElementById('floatTableNum').innerText = currentTable;
     renderOrderMenu();
     navigateTo('order-menu');
+}
+
+function renderRecList(category, subCat = null) {
+    const list = document.getElementById('rec-list-container');
+    if (!list) return; 
+    let filtered = (category === 'all' || !category) 
+        ? recData 
+        : recData.filter(item => (item.cat || '').toLowerCase() === category.toLowerCase());
+
+    if (subCat) {
+        filtered = filtered.filter(item => 
+            (item.tags || []).some(t => t.toLowerCase().includes(subCat.toLowerCase()))
+        );
+    }
+
+    list.innerHTML = filtered.map(item => `
+        <div class="list-item" onclick="openDetailModal('${item.id}')">
+            <div class="img-box" style="width: 80px; height: 80px; border-radius: 12px; overflow: hidden; margin-right: 15px; flex-shrink: 0;">
+                <img src="${item.img || 'https://via.placeholder.com/80'}" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <div class="list-content">
+                <div class="item-title" style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">
+                    ${item.title} <span style="color: ${item.status === 'red' ? '#ff4d4f' : item.status === 'yellow' ? '#faad14' : '#52c41a'};">●</span>
+                </div>
+                <div class="item-desc" style="font-size: 13px; color: #666; margin-bottom: 4px;">${item.desc || ''}</div>
+                <div class="item-tags">
+                    ${(item.tags || []).map(t => `<span class="tag" style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; margin-right:4px;">#${t}</span>`).join('')}
+                </div>
+            </div>
+        </div>
+    `).join('');
 }
 
 function renderOrderMenu() {
@@ -914,7 +1366,7 @@ function calcTotal() {
 }
 
 function openOrderSummary() {
-    let html = `<h3>Confirm Order</h3><div style="text-align:left; margin-top:20px;">`;
+    let html = `<h3>Confirm Order</h3><div style="text-align:left; margin-top:20px; max-height:50vh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior: contain;">`;
     const langKey = currentLang;
     const isPaid = userMembershipType === 'paid';
     
@@ -947,7 +1399,7 @@ function openBillModal() {
     const isPaid = userMembershipType === 'paid';
     const getPrice = (p) => isPaid ? Math.floor(p * 0.95) : p;
 
-    let html = `<h3>Bill (Table ${currentTable})</h3><div style="text-align:left; margin-top:20px; max-height:300px; overflow-y:auto;">`;
+    let html = `<h3>Bill (Table ${currentTable})</h3><div style="text-align:left; margin-top:20px; max-height:50vh; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior: contain;">`;
     
     // 1. Confirmed Orders (Group by Batch)
     if (confirmedOrders.length > 0) {
@@ -1088,22 +1540,31 @@ function calcSharedSplit(sharedTotal, myTotal) {
     if(document.getElementById('final-personal-pay')) document.getElementById('final-personal-pay').innerText = (myTotal + splitVal).toLocaleString();
 }
 
-function submitOrder() {
+async function submitOrder() {
     const batchId = Date.now(); // [신규] 주문 배치 ID
+    const orderItems = [];
+    let totalAmount = 0;
+
     // 장바구니 내용을 확정 내역으로 이동
     for (let id in cart) {
         if (cart[id] > 0) {
             const isShared = String(id).startsWith('s-');
             const realId = isShared ? id.substring(2) : id;
             const m = menuData.find(x => x.id == realId);
-            confirmedOrders.push({ 
+            
+            const itemTotal = m.price * cart[id];
+            totalAmount += itemTotal;
+
+            const orderItem = { 
                 id: m.id, 
                 name: m.name, 
                 price: m.price, 
                 qty: cart[id], 
                 batchId: batchId,
-                isShared: isShared // [신규] 공유 여부 저장
-            });
+                isShared: isShared 
+            };
+            confirmedOrders.push(orderItem);
+            orderItems.push(orderItem);
         }
     }
     cart = {};
@@ -1111,12 +1572,24 @@ function submitOrder() {
     closeModal('modal-bill');
     navigateTo('order-waiting');
     
-    // 3초 후 주문 접수 완료 처리 (시뮬레이션)
-    setTimeout(() => {
-        alert("주방에서 주문을 접수했습니다! (조리 시작)");
-        // 주문 후에도 메뉴판에 머무르거나 홈으로 이동 (여기선 홈으로)
-        navigateTo('home'); 
-    }, 3000);
+    // [변경] 'orders' 컬렉션에 pending 상태로 저장
+    try {
+        const docRef = await window.addDoc(window.collection(window.db, "orders"), {
+            table: currentTable,
+            items: orderItems,
+            totalPrice: totalAmount,
+            status: 'pending', // 대기 중
+            createdAt: Date.now(),
+            userId: window.auth.currentUser ? window.auth.currentUser.uid : 'guest'
+        });
+        console.log("🚀 주문 전송 완료 (Pending)");
+        
+        // [신규] 실시간 상태 모니터링 시작
+        monitorOrderStatus(docRef.id);
+    } catch (e) {
+        console.error("주문 전송 실패:", e);
+        alert("주문 전송 중 오류가 발생했습니다.");
+    }
 }
 
 // [신규] 식사 종료 및 결제
@@ -1156,7 +1629,18 @@ async function finishEating() {
     });
 
     try {
-        await window.addDoc(window.collection(window.db, "history"), { type: "dining", date: new Date().toLocaleString(), storeName: `Imake Pocha (Table ${currentTable})`, items: summaryText.join(", "), originalAmount: totalOriginal, paidAmount: totalPaid, savedAmount: totalOriginal - totalPaid, isPaidMember: isPaid, created: Date.now() });
+        await window.addDoc(window.collection(window.db, "history"), { 
+            type: "dining", 
+            date: new Date().toLocaleString(), 
+            storeName: `Imake Pocha (Table ${currentTable})`, 
+            items: summaryText.join(", "), 
+            originalAmount: totalOriginal, 
+            paidAmount: totalPaid, 
+            savedAmount: totalOriginal - totalPaid, 
+            isPaidMember: isPaid, 
+            created: Date.now(),
+            userId: window.auth.currentUser ? window.auth.currentUser.uid : 'guest' // [신규] 회원별 조회를 위해 ID 저장
+        });
         alert(`🎉 정산 완료! (Check Out)\n\n총 ₩${(totalOriginal - totalPaid).toLocaleString()}원을 절약했습니다!`);
         cart = {}; confirmedOrders = []; currentTable = ""; closeModal('modal-bill'); navigateTo('history');
     } catch (e) { console.error(e); alert("오류 발생"); }
@@ -1164,3 +1648,37 @@ async function finishEating() {
 
 function minimizeOrder() { navigateTo('home'); }
 function restoreOrderScreen() { navigateTo('order-menu'); }
+
+/* ==========================================================
+   [신규] 주문 상태 모니터링 (실시간)
+   ========================================================== */
+let orderStatusUnsub = null;
+
+function monitorOrderStatus(orderId) {
+    if (orderStatusUnsub) orderStatusUnsub();
+
+    orderStatusUnsub = window.onSnapshot(window.doc(window.db, "orders", orderId), (doc) => {
+        if (!doc.exists()) return;
+        const data = doc.data();
+
+        // 상태가 'cooking'으로 변경되었을 때 UI 업데이트
+        if (data.status === 'cooking') {
+            const container = document.getElementById('page-order-waiting');
+            if (!container) return;
+
+            const title = container.querySelector('h2');
+            const desc = container.querySelector('p');
+            const icon = container.querySelector('.pulse-icon');
+            const btnHome = document.getElementById('btn-go-home');
+
+            if (title) title.innerText = "주문 확인! (조리 중)";
+            if (desc) desc.innerHTML = "주방에서 주문을 확인했습니다.<br>맛있게 조리 중입니다.";
+            if (icon) {
+                // 아이콘 변경 (Send -> Chef Hat)
+                icon.innerHTML = '<i data-lucide="chef-hat" style="width:32px; height:32px; color:#ef4444;"></i>';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+            if (btnHome) btnHome.style.display = 'block';
+        }
+    });
+}
