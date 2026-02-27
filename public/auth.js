@@ -259,7 +259,7 @@ function initAuthListener() {
 }
 
 // 다국어
-const translations = {
+var translations = {
     'en': {
         'my_qr': 'My QR',
         'menu_title': 'Menu',
@@ -386,7 +386,7 @@ const translations = {
     }
 };
 
-let currentLang = 'en';
+var currentLang = 'en';
 
 function changeLanguage(lang) {
     if (!translations[lang]) lang = 'en';
@@ -499,3 +499,19 @@ async function saveOnboarding() {
         alert("저장 실패: " + e.message);
     }
 }
+
+// [신규] 전역 함수 등록 (다른 스크립트 접근용)
+window.checkMembershipStatus = checkMembershipStatus;
+window.simulatePayment = simulatePayment;
+window.generateQRCode = generateQRCode;
+window.updateQRModalUI = updateQRModalUI;
+window.loginWithGoogle = loginWithGoogle;
+window.handleLogout = handleLogout;
+window.initAuthListener = initAuthListener;
+window.changeLanguage = changeLanguage;
+window.handleEmailLogin = handleEmailLogin;
+window.openResetPwModal = openResetPwModal;
+window.handlePasswordReset = handlePasswordReset;
+window.handleSignUp = handleSignUp;
+window.applyUserPreferences = applyUserPreferences;
+window.saveOnboarding = saveOnboarding;

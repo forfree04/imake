@@ -33,20 +33,102 @@
         </div>
 
         <div class="btn-group">
-            <button class="btn btn-outline">메뉴판 보기</button>
-            <button class="btn btn-primary" onclick="location.href='/'">홈으로 이동</button>
+            <button class="btn btn-primary" id="open-app-btn">앱에서 열기</button>
+            <button class="btn btn-outline" onclick="location.href='/'">웹으로 계속 보기</button>
         </div>
     </div>
 
-    <script>
-        // URL에서 매장 ID 가져오기 (예: ?id=store_01)
+    // 공급자 외부 qr클릭시 나오는 페이지. 매장 정보와 혼잡도 상태를 표시
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyAonpP6itJ9_vMlAQm-0oC-fqmhlYMReE4", authDomain: "imake-master.firebaseapp.com", projectId: "imake-master", storageBucket: "imake-master.firebasestorage.app", messagingSenderId: "612892096078", appId: "1:612892096078:web:5a573c1a0dceb525eaf51f" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
         const urlParams = new URLSearchParams(window.location.search);
         const storeId = urlParams.get('id');
 
-        // 임시 데이터 (나중에 Firestore 데이터베이스와 연결할 부분입니다)
-        if(storeId === 'store_01') {
-            document.getElementById('storeName').innerText = "제주 맛집 본점";
-            document.getElementById('storeDesc').innerText = "기획서에 명시된 로컬 맛집 정보입니다.";
+        if (storeId) {
+            loadStoreData(storeId);
+        } else {
+            document.getElementById('storeName').innerText = "매장 정보를 찾을 수 없습니다.";
+        }
+
+        async function loadStoreData(id) {
+            try {
+                // recommendations 컬렉션(매장 정보)에서 조회
+                const docRef = doc(db, "recommendations", id);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    
+                    document.getElementById('storeName').innerText = data.title;
+                    document.getElementById('storeDesc').innerText = data.desc || "";
+                    
+                    if (data.img) {
+                        const imgEl = document.getElementById('storeImage');
+                        imgEl.style.backgroundImage = `url('${data.img}')`;
+                        imgEl.style.backgroundSize = 'cover';
+                        imgEl.innerText = '';
+                    }
+
+                    // 혼잡도 상태 반영
+                    const statusEl = document.getElementById('status');
+                    const statusMap = { 'green': '● 여유', 'yellow': '● 보통', 'red': '● 혼잡' };
+                    const colorMap = { 'green': '#22c55e', 'yellow': '#eab308', 'red': '#ef4444' };
+                    
+                    if (data.status && statusMap[data.status]) {
+                        statusEl.innerText = statusMap[data.status];
+                        statusEl.style.backgroundColor = colorMap[data.status];
+                    }
+                } else {
+                    document.getElementById('storeName').innerText = "존재하지 않는 매장입니다.";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // [신규] 앱 열기 버튼 로직 (딥링크)
+        const openAppBtn = document.getElementById('open-app-btn');
+        if (openAppBtn) {
+            openAppBtn.addEventListener('click', () => {
+                // 1. 딥링크 URL 정의 (실제 앱 개발 시 협의된 스킴 사용)
+                // 예: imake://spot?id=매장ID
+                const deepLink = `imake://spot?id=${storeId}`;
+
+                // 2. 앱스토어/플레이스토어 URL (실제 ID와 패키지명으로 교체 필요)
+                const AppStoreID = '123456789'; // 예시: 실제 앱의 Apple ID
+                const AndroidPackageName = 'com.imake.app'; // 예시: 실제 앱의 패키지명
+
+                const appStoreUrl = `https://apps.apple.com/app/id${AppStoreID}`;
+                const playStoreUrl = `https://play.google.com/store/apps/details?id=${AndroidPackageName}`;
+
+                const ua = navigator.userAgent.toLowerCase();
+                const isAndroid = ua.includes('android');
+                const isIOS = /iphone|ipad|ipod/.test(ua);
+
+                // 3. PC 또는 미지원 OS일 경우
+                if (!isAndroid && !isIOS) {
+                    alert('이 기능은 모바일 앱에서만 지원됩니다.');
+                    return;
+                }
+
+                // 4. 딥링크 시도 (커스텀 스킴 방식)
+                // 참고: Universal Link/App Link가 설정되어 있다면 그 주소로 바로 이동하는 것이 가장 좋습니다.
+                window.location.href = deepLink;
+
+                // 5. 앱이 설치되지 않았을 경우를 대비해 스토어로 리디렉션
+                setTimeout(() => {
+                    // 앱으로 성공적으로 전환되었다면 페이지가 백그라운드로 전환되어 아래 코드가 실행되지 않음
+                    if (document.hidden) return; 
+                    if (isIOS) window.location.href = appStoreUrl;
+                    else if (isAndroid) window.location.href = playStoreUrl;
+                }, 2500); // 2.5초 후 실행
+            });
         }
     </script>
 </body>
