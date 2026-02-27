@@ -54,8 +54,16 @@ async function registerProvider() {
     const name = document.getElementById('reg-store-name').value;
     if(!name) return alert("가게 이름을 입력하세요.");
 
+    // [신규] QR 코드에 담을 데이터 생성 (매장 진입용 URL)
+    // 예: https://imake-master.web.app/entry?pid=PROVIDER_UID
+    const entryUrl = `${window.location.origin}/entry?pid=${user.uid}`;
+
     await window.setDoc(window.doc(window.db, "providers", user.uid), {
-        storeName: name, email: user.email, status: 'pending', createdAt: Date.now()
+        storeName: name, 
+        email: user.email, 
+        status: 'pending', 
+        createdAt: Date.now(),
+        qrData: entryUrl // [신규] QR 데이터 저장
     });
     alert("가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.");
     location.reload();
@@ -139,6 +147,7 @@ function loadMenus() {
             <div style="display:flex; align-items:center; border-bottom:1px solid #eee; padding:8px 0; opacity:${m.soldOut ? '0.6' : '1'};">
                 <img src="${m.img}" style="width:40px; height:40px; object-fit:cover; border-radius:4px; margin-right:10px; filter:${m.soldOut ? 'grayscale(100%)' : 'none'};">
                 <div style="flex:1;">${m.name.ko} ${m.soldOut ? '<span style="color:red; font-weight:bold; font-size:12px;">(SOLD OUT)</span>' : ''} <small>(${m.price})</small></div>
+                <button onclick="editMenu('${m.id}')" style="margin-right:5px; padding:4px 8px; border:1px solid #ddd; background:white; border-radius:4px; cursor:pointer;">수정</button>
                 <button onclick="toggleSoldOut('${m.id}', ${m.soldOut})" style="margin-right:5px; padding:4px 8px; border:1px solid #ddd; background:white; border-radius:4px; cursor:pointer;">${m.soldOut ? '입고' : '품절'}</button>
                 <button onclick="deleteMenu('${m.id}')" style="color:red; border:none; background:none; cursor:pointer;">Del</button>
             </div>
@@ -150,7 +159,22 @@ async function toggleSoldOut(id, currentStatus) {
     await window.updateDoc(window.doc(window.db, "menus", id), { soldOut: !currentStatus });
 }
 
+function editMenu(id) {
+    const menu = menuData.find(m => m.id === id);
+    if (!menu) return;
+    
+    document.getElementById('menu-id').value = menu.id;
+    document.getElementById('menu-name-ko').value = menu.name.ko || '';
+    document.getElementById('menu-name-en').value = menu.name.en || '';
+    document.getElementById('menu-price').value = menu.price || '';
+    document.getElementById('menu-img').value = menu.img || '';
+    
+    // 스크롤을 폼으로 이동
+    document.getElementById('menu-name-ko').focus();
+}
+
 async function saveMenu() {
+    const id = document.getElementById('menu-id').value;
     const nameKo = document.getElementById('menu-name-ko').value;
     const price = document.getElementById('menu-price').value;
     if (!nameKo || !price) return alert("필수 입력");
@@ -160,7 +184,9 @@ async function saveMenu() {
         price: Number(price),
         img: document.getElementById('menu-img').value || "https://via.placeholder.com/150"
     };
-    await window.setDoc(window.doc(window.db, "menus", String(Date.now())), data);
+
+    const docId = id || String(Date.now());
+    await window.setDoc(window.doc(window.db, "menus", docId), data, { merge: true });
     clearMenuForm();
 }
 
@@ -169,6 +195,7 @@ async function deleteMenu(id) {
 }
 
 function clearMenuForm() {
+    document.getElementById('menu-id').value = '';
     document.querySelectorAll('input').forEach(el => el.value = "");
 }
 
@@ -202,6 +229,20 @@ async function loadStoreSettings() {
             document.getElementById('pending-msg').style.display = 'block';
         } else {
             document.getElementById('pending-msg').style.display = 'none';
+        }
+
+        // [신규] QR 코드 렌더링
+        if (data.qrData && typeof QRCode !== 'undefined') {
+            const qrContainer = document.getElementById('provider-qr-code');
+            qrContainer.innerHTML = ''; // Placeholder 제거
+            new QRCode(qrContainer, {
+                text: data.qrData,
+                width: 150,
+                height: 150,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
         }
     }
 }
@@ -294,4 +335,4 @@ window.providerLogin = providerLogin; window.providerLogout = providerLogout;
 window.registerProvider = registerProvider;
 window.acceptOrder = acceptOrder; window.saveMenu = saveMenu; window.deleteMenu = deleteMenu; window.clearMenuForm = clearMenuForm;
 window.switchTab = switchTab; window.saveStoreSettings = saveStoreSettings; window.toggleSoldOut = toggleSoldOut;
-window.updateCongestion = updateCongestion;
+window.updateCongestion = updateCongestion; window.editMenu = editMenu;

@@ -144,14 +144,15 @@
                 </div>
 
                 <div class="category-scroll">
-                    <button class="cat-btn active" onclick="filterCategory('all')"><i data-lucide="layers"></i> <span data-i18n="cat_all">All</span></button>
-                    <button class="cat-btn" onclick="filterCategory('food')"><i data-lucide="utensils"></i> <span data-i18n="cat_food">Food</span></button>
-                    <button class="cat-btn" onclick="filterCategory('cafe')"><i data-lucide="coffee"></i> <span data-i18n="cat_cafe">Cafe</span></button>
-                    <button class="cat-btn" onclick="filterCategory('store')"><i data-lucide="store"></i> <span data-i18n="cat_store">Store</span></button>
-                    <button class="cat-btn" onclick="filterCategory('beauty')"><i data-lucide="scissors"></i> <span data-i18n="cat_beauty">Beauty</span></button>
-                    <button class="cat-btn" onclick="filterCategory('activity')"><i data-lucide="ticket"></i> <span data-i18n="cat_activity">Activity</span></button>
-                </div>
-
+    <button class="cat-btn active" onclick="filterCategory('all')"><i data-lucide="layers"></i> <span data-i18n="cat_all">All</span></button>
+    <button class="cat-btn" onclick="filterCategory('food')"><i data-lucide="utensils"></i> <span data-i18n="cat_food">Food</span></button>
+    <button class="cat-btn" onclick="filterCategory('cafe')"><i data-lucide="coffee"></i> <span data-i18n="cat_cafe">Cafe</span></button>
+    <button class="cat-btn" onclick="filterCategory('activity')"><i data-lucide="ticket"></i> <span data-i18n="cat_activity">Activity</span></button>
+    <button class="cat-btn" onclick="filterCategory('stay')"><i data-lucide="bed"></i> <span>Stay</span></button>
+    <button class="cat-btn" onclick="filterCategory('healing')"><i data-lucide="leaf"></i> <span>Healing</span></button>
+    <button class="cat-btn" onclick="filterCategory('beauty')"><i data-lucide="scissors"></i> <span data-i18n="cat_beauty">Beauty</span></button>
+    <button class="cat-btn" onclick="filterCategory('shopping')"><i data-lucide="shopping-bag"></i> <span>Shopping</span></button>
+</div>
                 <div class="rec-section">
                     <div class="section-header">
                         <h3 data-i18n="rec_title">Recommended Spots</h3>
@@ -475,17 +476,17 @@
             </div>
         </div>
 
-        <!-- [개편] Food 카테고리 모달 (Tab + List) -->
-        <div id="modal-food-menu" class="modal-overlay" onclick="closeModal('modal-food-menu')">
-            <div class="modal-content" onclick="event.stopPropagation()" style="width: 90%; max-width: 430px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px; background: #f8f9fa;">
-                <div class="modal-header-row" style="flex-shrink: 0;">
-                    <h3>Food Menu</h3>
-                    <button onclick="closeModal('modal-food-menu')"><i data-lucide="x"></i></button>
-                </div>
-                <div id="food-tabs" style="display: flex; overflow-x: auto; background: white; padding: 0 10px; border-bottom: 1px solid #eee; flex-shrink: 0; white-space: nowrap; -webkit-overflow-scrolling: touch;"></div>
-                <div id="food-content" class="modal-body-scroll" style="flex: 1; padding: 15px;"></div>
-            </div>
+        <!-- [개편] 카테고리 모달 (Tab + List) -->
+        <div id="modal-category-menu" class="modal-overlay" onclick="closeModal('modal-category-menu')">
+    <div class="modal-content" onclick="event.stopPropagation()" style="width: 90%; max-width: 430px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 20px; background: #f8f9fa;">
+        <div class="modal-header-row" style="flex-shrink: 0;">
+            <h3 id="category-modal-title">Category Menu</h3>
+            <button onclick="closeModal('modal-category-menu')"><i data-lucide="x"></i></button>
         </div>
+        <div id="category-tabs" style="display: flex; overflow-x: auto; background: white; padding: 0 10px; border-bottom: 1px solid #eee; flex-shrink: 0; white-space: nowrap; -webkit-overflow-scrolling: touch;"></div>
+        <div id="category-content" class="modal-body-scroll" style="flex: 1; padding: 15px;"></div>
+    </div>
+</div>
 
         <nav class="bottom-nav">
             <div class="nav-inner">
@@ -547,5 +548,8 @@
         console.log("🔥 Firebase Initialized Correctly");
     </script>
     <script src="script.js" defer></script>
+    <script src="auth.js" defer></script>
+    <script src="map.js" defer></script>
+    <script src="orders.js" defer></script>
 </body>
 </html>

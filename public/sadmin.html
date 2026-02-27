@@ -135,13 +135,19 @@
                         </div>
                     </div>
                     <div style="overflow-x:auto;">
-                        <table style="min-width: 800px;">
+                        <table style="min-width: 900px;">
                             <thead>
-                                <tr><th>업체명</th><th>카테고리</th><th>전화번호</th><th>상태</th><th>관리</th></tr>
+                                <tr>
+                                    <th style="width: 18%;">업체명</th>
+                                    <th style="width: 12%;">1차 카테고리</th>
+                                    <th style="width: 10%;">2차 카테고리</th>
+                                    <th style="width: 22%;">주소</th>
+                                    <th style="width: 12%;">전화번호</th>
+                                    <th style="width: 8%;">상태</th>
+                                    <th style="width: 22%; min-width: 200px;">관리 (CRUD)</th>
+                                </tr>
                             </thead>
-                            <tbody id="partners-table-body">
-                                <!-- Partner rows will be injected here -->
-                            </tbody>
+                            <tbody id="partners-table-body"></tbody>
                         </table>
                     </div>
                 </div>
@@ -158,7 +164,7 @@
         </div>
     </div>
 
-    <!-- [신규] 히스토리 상세 모달 -->
+    <!-- 히스토리 상세 모달 -->
     <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
         <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; display:flex; flex-direction:column;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
@@ -169,43 +175,93 @@
         </div>
     </div>
 
-    <!-- [신규] 히스토리 상세 모달 -->
-    <div id="history-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-        <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:500px; max-height:80vh; display:flex; flex-direction:column;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
-                <h3 id="history-modal-title" style="margin:0;">History</h3>
-                <button onclick="closeHistoryModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
-            </div>
-            <div id="history-modal-content" style="overflow-y:auto; flex:1;">Loading...</div>
-        </div>
-    </div>
-
-    <!-- [신규] 파트너 수동 등록 모달 -->
+    <!-- 파트너 등록/수정 모달 (1·2차 카테고리) -->
     <div id="partner-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-        <div style="background:white; padding:30px; border-radius:12px; width:90%; max-width:500px;">
+        <div style="background:white; padding:30px; border-radius:12px; width:90%; max-width:520px; max-height:90vh; overflow-y:auto;">
             <h3 id="partner-modal-title" style="margin-top:0;">새 파트너 등록</h3>
             <input type="hidden" id="partner-id">
-            <p style="color:#666; font-size:14px; margin-bottom:20px;">매장 정보를 직접 입력하여 등록합니다.</p>
+            <p style="color:#666; font-size:14px; margin-bottom:15px;">매장 정보를 입력합니다.</p>
             
             <label style="display:block; font-weight:bold; margin-bottom:5px;">업체명</label>
             <input type="text" id="new-partner-store" placeholder="업체명">
 
-            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">카테고리</label>
-            <input type="text" id="new-partner-cat" placeholder="Food, Cafe 등">
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:12px;">이메일 (가입 연동 시 사용)</label>
+            <input type="text" id="new-partner-email" placeholder="선택 입력" style="background:#f9f9f9;">
 
-            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">주소 (좌표 자동 검색)</label>
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:12px;">1차 카테고리</label>
+            <select id="new-partner-cat" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px;">
+                <option value="">선택</option>
+            </select>
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">2차 카테고리</label>
+            <select id="new-partner-subcat" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; margin-bottom:8px;">
+                <option value="">선택 (1차 선택 후)</option>
+            </select>
+
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:12px;">주소 (좌표 자동 검색)</label>
             <input type="text" id="new-partner-addr" placeholder="주소 (예: 서울 중구 세종대로 110)">
 
             <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">전화번호</label>
             <input type="text" id="new-partner-phone" placeholder="010-xxxx-xxxx">
 
-            <h4 style="margin-top:20px; margin-bottom:10px; border-top:1px solid #eee; padding-top:10px;">대표 메뉴</h4>
+            <label style="display:block; font-weight:bold; margin-bottom:5px; margin-top:10px;">상태</label>
+            <select id="new-partner-status" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px;">
+                <option value="active">Active (승인)</option>
+                <option value="pending">Pending (대기)</option>
+                <option value="suspended">Suspended (정지)</option>
+            </select>
+
+            <h4 style="margin-top:20px; margin-bottom:10px; border-top:1px solid #eee; padding-top:10px;">대표 메뉴 (신규 등록 시만)</h4>
             <input type="text" id="new-partner-menu-name" placeholder="메뉴명" style="margin-bottom:5px;">
             <input type="number" id="new-partner-menu-price" placeholder="가격 (원)">
 
             <div style="display:flex; gap:10px; margin-top:25px;">
                 <button onclick="closePartnerModal()" class="btn" style="flex:1; background:#eee;">취소</button>
-                <button onclick="savePartner()" class="btn btn-primary" style="flex:1;">파트너 저장</button>
+                <button onclick="savePartner()" class="btn btn-primary" style="flex:1;">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 파트너별 메뉴 모달 -->
+    <div id="partner-menus-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1001; justify-content:center; align-items:center;">
+        <div style="background:white; padding:24px; border-radius:12px; width:90%; max-width:560px; max-height:85vh; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                <h3 id="partner-menus-title" style="margin:0;">메뉴 관리</h3>
+                <button onclick="closePartnerMenusModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="partner-menus-provider-id">
+            <div id="partner-menus-list" style="overflow-y:auto; flex:1; min-height:120px; margin-bottom:15px;">Loading...</div>
+            <div style="border-top:1px solid #eee; padding-top:15px;">
+                <h4 style="margin:0 0 10px 0;">메뉴 추가</h4>
+                <input type="text" id="pmenu-name-ko" placeholder="메뉴명 (한글)" style="margin-bottom:6px;">
+                <input type="text" id="pmenu-name-en" placeholder="메뉴명 (영어)" style="margin-bottom:6px;">
+                <input type="number" id="pmenu-price" placeholder="가격 (원)" style="margin-bottom:6px;">
+                <input type="text" id="pmenu-img" placeholder="이미지 URL (선택)">
+                <button class="btn btn-primary" onclick="savePartnerMenu()" style="margin-top:8px;">메뉴 추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메뉴 수정 모달 (업체별 메뉴에서 수정 시) -->
+    <div id="edit-menu-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1002; justify-content:center; align-items:center;">
+        <div style="background:white; padding:24px; border-radius:12px; width:90%; max-width:400px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0;">메뉴 수정</h3>
+                <button onclick="closeEditMenuModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+            </div>
+            <input type="hidden" id="edit-menu-id">
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">메뉴명 (한글)</label>
+            <input type="text" id="edit-menu-name-ko" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;">
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">메뉴명 (영어)</label>
+            <input type="text" id="edit-menu-name-en" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;">
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">가격 (원)</label>
+            <input type="number" id="edit-menu-price" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;">
+            <label style="display:block; font-weight:bold; margin-bottom:5px;">이미지 URL</label>
+            <input type="text" id="edit-menu-img" style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;">
+            <label style="display:flex; align-items:center; gap:8px; margin-bottom:15px;"><input type="checkbox" id="edit-menu-soldout"> 품절</label>
+            <div style="display:flex; gap:10px;">
+                <button onclick="closeEditMenuModal()" class="btn" style="flex:1; background:#eee;">취소</button>
+                <button onclick="saveEditMenu()" class="btn btn-primary" style="flex:1;">저장</button>
             </div>
         </div>
     </div>

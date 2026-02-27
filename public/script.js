@@ -3,28 +3,41 @@
    ========================================================== */
 if (typeof lucide !== 'undefined') lucide.createIcons();
 
-let todoList = [];
-let favList = [];
-let schedList = [];
-let historyList = []; // [신규] 히스토리 데이터
-let recData = []; // 추천 데이터 저장소
+// [수정] 다른 파일(map.js, orders.js)에서 접근할 수 있도록 var 사용 (window 객체에 바인딩)
+var todoList = [];
+var favList = [];
+var schedList = [];
+var historyList = []; 
+var recData = []; 
 
-let currentEditType = null;
-let currentEditId = null;
+var currentEditType = null;
+var currentEditId = null;
 
-let map = null;       // 지도 객체
-let markers = [];     // 지도 마커 배열
-let userMarker = null; // [보완] 위치 마커 변수 선언 (누락 방지)
+var map = null;       
+var markers = [];     
+var userMarker = null; 
 
-let userMembershipType = 'free'; // [신규] 멤버십 상태 ('free' or 'paid')
-let isTrialActive = false; // [신규] 체험판 활성화 여부
-let userPreferences = {}; // [신규] 사용자 선호도
-// [신규] 주문 시스템 변수
-let currentTable = "";
-let cart = {};
-let confirmedOrders = [];
-let isDutchMode = false; // [신규] 더치페이 모드 상태
-let menuData = []; // [변경] DB에서 불러오도록 빈 배열로 초기화
+var userMembershipType = 'free'; 
+var isTrialActive = false; 
+var userPreferences = {}; 
+
+var currentTable = "";
+var cart = {};
+var confirmedOrders = [];
+var isDutchMode = false; 
+var menuData = []; 
+
+// [보안] XSS 방지용 이스케이프 함수 (전역 등록)
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+window.escapeHTML = escapeHTML;
 
 // 페이지 로드 시 실행
 window.onload = function() {
@@ -52,28 +65,28 @@ window.onload = function() {
    [2] Firestore 실시간 동기화 (spots 이름표 확인됨)
    ========================================================== */
 function initRealtimeListeners() {
-    if (!window.db) {
-        console.error("❌ DB 연결 실패: window.db가 없습니다.");
-        return;
-    }
+  if (!window.db) {
+    console.error("❌ DB 연결 실패: window.db가 없습니다.");
+    return;
+  }
 
-    // 1. To-Do List
-    window.onSnapshot(window.collection(window.db, "todos"), (snapshot) => {
-        todoList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // [이동 규칙] 오늘 날짜인 할 일은 스케줄로 이동
-        normalizeTodoToSchedule();
+  // 1. To-Do List
+  window.onSnapshot(window.collection(window.db, "todos"), (snapshot) => {
+    todoList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
-        renderTodoList();
-        updateCounts();
-    });
+    // [이동 규칙] 오늘 날짜인 할 일은 스케줄로 이동
+    normalizeTodoToSchedule();
 
-    // 2. Schedule List
-    window.onSnapshot(window.collection(window.db, "schedules"), (snapshot) => {
-        schedList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderSchedList();
-        updateCounts();
-    });
+    renderTodoList();
+    updateCounts();
+  });
+
+  // 2. Schedule List
+  window.onSnapshot(window.collection(window.db, "schedules"), (snapshot) => {
+    schedList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    renderSchedList();
+    updateCounts();
+  });
 
     // 3. Favorites List
     window.onSnapshot(window.collection(window.db, "favorites"), (snapshot) => {
@@ -83,14 +96,16 @@ function initRealtimeListeners() {
     });
 
     // 4. 추천 맛집 (컬렉션 이름 recommendations로 통일)
-    window.onSnapshot(window.collection(window.db, "recommendations"), (snapshot) => {
-        recData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        console.log(`✅ 맛집 데이터 수신: ${recData.length}개`);
-        
-        renderRecList('all');
-        updateMapMarkers('all');
-    });
+  window.onSnapshot(
+    window.collection(window.db, "recommendations"),
+    (snapshot) => {
+      recData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      console.log(`✅ 맛집 데이터 수신: ${recData.length}개`);
 
+      renderRecList("all");
+      updateMapMarkers("all");
+    }
+  );
     // 5. [신규] History List
     window.onSnapshot(window.collection(window.db, "history"), (snapshot) => {
         historyList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -253,8 +268,8 @@ function renderTodoList() {
         <div class="list-item ${item.checked ? 'checked' : ''}">
             <div class="list-check" onclick="toggleItem('todos', '${item.id}', ${item.checked})"><i data-lucide="check"></i></div>
             <div class="list-content" onclick="openEditPopup('todo', '${item.id}')">
-                <div class="item-title">${item.title}</div>
-                <div class="item-sub">${item.date || ''} ${item.time || ''}</div>
+                <div class="item-title">${escapeHTML(item.title)}</div>
+                <div class="item-sub">${escapeHTML(item.date || '')} ${escapeHTML(item.time || '')}</div>
             </div>
             <div class="list-actions" style="display:flex; gap:5px;">
                 <button onclick="openEditPopup('todo', '${item.id}')" style="background:none; border:none; cursor:pointer;"><i data-lucide="edit-3" style="width:18px; color:#666;"></i></button>
@@ -274,8 +289,8 @@ function renderSchedList() {
         <div class="list-item ${item.checked ? 'checked' : ''} ${!item.checked && item.time < now ? 'past' : ''}">
             <div class="list-check" onclick="toggleSched('${item.id}', ${item.checked})"><i data-lucide="check"></i></div>
             <div class="list-content" onclick="openEditPopup('sched', '${item.id}')">
-                <div class="item-title">${item.title}</div>
-                <div class="item-sub">⏰ ${item.time || '-'}</div>
+                <div class="item-title">${escapeHTML(item.title)}</div>
+                <div class="item-sub">⏰ ${escapeHTML(item.time || '-')}</div>
             </div>
             <div class="list-actions" style="display:flex; gap:5px;">
                 <button onclick="openEditPopup('sched', '${item.id}')" style="background:none; border:none; cursor:pointer;"><i data-lucide="edit-3" style="width:18px; color:#666;"></i></button>
@@ -295,8 +310,8 @@ function renderFavList() {
             <div class="list-item">
                 <div class="list-check" style="cursor:default;"><i data-lucide="heart" style="color:#ff4d4f; fill:#ff4d4f;"></i></div>
                 <div class="list-content">
-                    <div class="item-title">${item.title}</div>
-                    <div class="item-sub">${item.desc || ''}</div>
+                    <div class="item-title">${escapeHTML(item.title)}</div>
+                    <div class="item-sub">${escapeHTML(item.desc || '')}</div>
                 </div>
                 <div class="list-actions" style="display:flex; gap:5px;">
                     <button onclick="openEditPopup('fav', '${item.id}')" style="background:none; border:none; cursor:pointer;"><i data-lucide="edit-3" style="width:18px; color:#666;"></i></button>
@@ -308,13 +323,41 @@ function renderFavList() {
     lucide.createIcons();
 }
 
-// 맛집 리스트 그리기
-function renderRecList(category) {
+// [신규] 히스토리 리스트 그리기
+function renderHistoryList() {
+    const list = document.getElementById('list-history');
+    if (!list) return;
+    if (historyList.length === 0) list.innerHTML = "<div style='text-align:center;color:#888;'>기록이 없습니다.</div>";
+    else {
+        list.innerHTML = historyList.map(item => `
+            <div class="list-item" style="display:block; background:rgba(255,255,255,0.1); border:1px solid #333;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span style="font-weight:bold; color:white;">${escapeHTML(item.storeName)}</span>
+                    <span style="font-size:12px; color:#888;">${escapeHTML(item.date.split(',')[0])}</span>
+                </div>
+                <div style="font-size:13px; color:#ccc; margin-bottom:8px;">${escapeHTML(item.items)}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:bold; color:#ef4444;">₩ ${item.paidAmount.toLocaleString()}</span>
+                    ${item.savedAmount > 0 ? `<span style="font-size:11px; background:#10b981; color:white; padding:2px 6px; border-radius:4px;">Save ₩${item.savedAmount.toLocaleString()}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// 맛집 리스트 그리기 (지도/카테고리용)
+function renderRecList(category, subCat = null) {
     const list = document.getElementById('rec-list-container');
-    if (!list) return; 
-    const filtered = (category === 'all' || !category) 
-        ? recData 
+    if (!list) return;
+    let filtered = (category === 'all' || !category)
+        ? recData
         : recData.filter(item => (item.cat || '').toLowerCase() === category.toLowerCase());
+    if (subCat) {
+        filtered = filtered.filter(item =>
+            (item.tags || []).some(t => t.toLowerCase().includes(subCat.toLowerCase())) ||
+            (item.subCategory && item.subCategory.toLowerCase().includes(subCat.toLowerCase()))
+        );
+    }
     list.innerHTML = filtered.map(item => `
         <div class="list-item" onclick="openDetailModal('${item.id}')">
             <div class="img-box" style="width: 80px; height: 80px; border-radius: 12px; overflow: hidden; margin-right: 15px; flex-shrink: 0;">
@@ -333,43 +376,15 @@ function renderRecList(category) {
     `).join('');
 }
 
-// [신규] 히스토리 리스트 그리기
-function renderHistoryList() {
-    const list = document.getElementById('list-history');
-    if (!list) return;
-    if (historyList.length === 0) list.innerHTML = "<div style='text-align:center;color:#888;'>기록이 없습니다.</div>";
-    else {
-        list.innerHTML = historyList.map(item => `
-            <div class="list-item" style="display:block; background:rgba(255,255,255,0.1); border:1px solid #333;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                    <span style="font-weight:bold; color:white;">${item.storeName}</span>
-                    <span style="font-size:12px; color:#888;">${item.date.split(',')[0]}</span>
-                </div>
-                <div style="font-size:13px; color:#ccc; margin-bottom:8px;">${item.items}</div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:bold; color:#ef4444;">₩ ${item.paidAmount.toLocaleString()}</span>
-                    ${item.savedAmount > 0 ? `<span style="font-size:11px; background:#10b981; color:white; padding:2px 6px; border-radius:4px;">Save ₩${item.savedAmount.toLocaleString()}</span>` : ''}
-                </div>
-            </div>
-        `).join('');
-    }
-}
-
-/* ==========================================================
-   [신규] 상세 모달 및 즐겨찾기 기능
-   ========================================================== */
+// 상세 모달 및 즐겨찾기
 function openDetailModal(id) {
     const item = recData.find(i => i.id === id);
     if (!item) return;
-
-    // 즐겨찾기 여부 확인 (제목 기준)
     const isFav = favList.some(f => f.title === item.title);
     const favIconClass = isFav ? "fill: #ef4444; color: #ef4444;" : "color: #666;";
     const favText = isFav ? "즐겨찾기 해제" : "즐겨찾기 추가";
-
-    // [추가] 주소 정보가 있으면 표시할 HTML 생성
     const addrHtml = item.addr ? `<div style="margin-bottom:12px; color:#3b82f6; font-weight:bold; font-size:14px; display:flex; align-items:center; gap:4px;"><i data-lucide="map-pin" style="width:16px;"></i> ${item.addr}</div>` : '';
-
+    const subCatHtml = item.subCategory ? `<div style="margin-bottom:10px;"><span style="background:#eff6ff; color:#3b82f6; padding:4px 8px; border-radius:6px; font-size:12px; font-weight:bold;">#${item.subCategory}</span></div>` : '';
     const html = `
         <div style="position:relative;">
             <img src="${item.img || 'https://via.placeholder.com/400x250'}" style="width:100%; height:220px; object-fit:cover;">
@@ -379,52 +394,38 @@ function openDetailModal(id) {
             </div>
         </div>
         <div style="padding:20px;">
+            ${subCatHtml}
             ${addrHtml}
             <p style="color:#444; line-height:1.6; margin-top:0;">${item.desc || '상세 설명이 없습니다.'}</p>
-            
             <div style="display:flex; gap:10px; margin-top:20px;">
                 <button onclick="toggleRecFavorite('${item.id}')" style="flex:1; padding:12px; border:1px solid #ddd; background:white; border-radius:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; gap:6px; cursor:pointer;">
                     <i data-lucide="heart" style="width:18px; ${favIconClass}"></i> <span id="fav-btn-text">${favText}</span>
                 </button>
-                <button onclick="moveToMap('${item.title}', ${item.lat}, ${item.lng}); closeModal('modal-detail');" style="flex:1; padding:12px; background:#3b82f6; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">
-                    📍 지도 보기
-                </button>
+                <button onclick="moveToMap('${item.title}', ${item.lat}, ${item.lng}); closeModal('modal-detail');" style="flex:1; padding:12px; background:#3b82f6; color:white; border:none; border-radius:10px; font-weight:bold; cursor:pointer;">📍 지도 보기</button>
             </div>
         </div>
     `;
-
     document.getElementById('detail-body').innerHTML = html;
     document.getElementById('modal-detail').style.display = 'flex';
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 async function toggleRecFavorite(recId) {
     const item = recData.find(i => i.id === recId);
     if (!item) return;
-
     const existingFav = favList.find(f => f.title === item.title);
-    if (existingFav) {
-        await deleteItem('favorites', existingFav.id); // 이미 있으면 삭제
-    } else {
-        await window.addDoc(window.collection(window.db, "favorites"), {
-            title: item.title, desc: item.desc || '', cat: item.cat || '', created: Date.now()
-        });
-    }
-    // 상태 변경 후 모달 다시 렌더링 (UI 갱신)
+    if (existingFav) await deleteItem('favorites', existingFav.id);
+    else await window.addDoc(window.collection(window.db, "favorites"), { title: item.title, desc: item.desc || '', cat: item.cat || '', created: Date.now() });
     openDetailModal(recId);
 }
 
-/* ==========================================================
-   [5] 지도 연동 핵심 기능
-   ========================================================== */
+// 지도 초기화 및 마커
 function initMap() {
     const mapContainer = document.getElementById('map');
     if (!mapContainer || map !== null) return;
     map = L.map('map').setView([37.5665, 126.9780], 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
     updateMapMarkers('all');
-
-    // [신규] 지도 로드 시 자동으로 내 위치 찾기
     findMyLocation();
 }
 
@@ -432,28 +433,21 @@ function updateMapMarkers(category, subCat = null) {
     if (!map) return;
     markers.forEach(m => map.removeLayer(m));
     markers = [];
-    const filtered = (category === 'all' || !category) 
-        ? recData 
-        : recData.filter(item => (item.cat || '').toLowerCase() === category.toLowerCase());
-
-    // [신규] 2차 카테고리(태그) 필터링
+    let filtered = (category === 'all' || !category) ? recData : recData.filter(item => (item.cat || '').toLowerCase() === category.toLowerCase());
     if (subCat) {
-        filtered = filtered.filter(item => 
-            (item.tags || []).some(t => t.toLowerCase().includes(subCat.toLowerCase()))
+        filtered = filtered.filter(item =>
+            (item.tags || []).some(t => t.toLowerCase().includes(subCat.toLowerCase())) ||
+            (item.subCategory && item.subCategory.toLowerCase().includes(subCat.toLowerCase()))
         );
     }
-
     filtered.forEach(item => {
         if (item.lat && item.lng) {
             const marker = L.marker([item.lat, item.lng]).addTo(map);
-            marker.bindPopup(`<b>${item.title}</b><br>${item.desc || ''}`);
-            // [수정] 지도 팝업에도 주소 표시
             const addrInfo = item.addr ? `<br><span style="color:#3b82f6; font-size:11px;">${item.addr}</span>` : '';
             marker.bindPopup(`<b>${item.title}</b>${addrInfo}<br>${item.desc || ''}`);
             markers.push(marker);
         }
     });
-    
     if (markers.length > 0) {
         const group = L.featureGroup(markers);
         map.fitBounds(group.getBounds(), { padding: [50, 50] });
@@ -466,118 +460,100 @@ function moveToMap(title, lat, lng) {
     setTimeout(() => {
         map.invalidateSize();
         map.flyTo([lat, lng], 17, { animate: true, duration: 1.5 });
-        markers.forEach(m => {
-            const p = m.getLatLng();
-            if (Math.abs(p.lat - lat) < 0.0001) m.openPopup();
-        });
+        markers.forEach(m => { const p = m.getLatLng(); if (Math.abs(p.lat - lat) < 0.0001) m.openPopup(); });
     }, 300);
 }
 
-// [변경] 카테고리 버튼 클릭 핸들러
+// 카테고리 / 2차 카테고리 모달
 function filterCategory(category) {
-    if (category === 'food') {
-        openFoodMenuModal();
-    } else {
-        applyCategoryFilter(category);
-    }
+    if (category === 'all') { applyCategoryFilter('all'); return; }
+    openCategoryModal(category);
 }
 
-// [신규] 실제 필터링 적용 함수 (공통)
 function applyCategoryFilter(category, subCat = null) {
     document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
     const activeBtn = document.querySelector(`.cat-btn[onclick*="'${category}'"]`);
-    if(activeBtn) activeBtn.classList.add('active');
+    if (activeBtn) activeBtn.classList.add('active');
     renderRecList(category, subCat);
     updateMapMarkers(category, subCat);
 }
 
-// [개편] 3차 카테고리 데이터 및 로직
-const foodData = {
-    'rice': {
-        label: 'Rice (밥)',
-        items: [
-            { name: 'Bibimbap (비빔밥)', desc: 'Mixed rice with vegetables', tag: 'Bibimbap' },
-            { name: 'Gukbap (국밥)', desc: 'Hot soup with rice', tag: 'Gukbap' },
-            { name: 'Fried Rice (볶음밥)', desc: 'Stir-fried rice', tag: 'Fried Rice' }
-        ]
+const categoryMenuData = {
+    'food': {
+        'rice': { label: 'Rice (밥)', items: [{ name: 'Bibimbap (비빔밥)', desc: 'Mixed rice with vegetables', tag: 'Bibimbap' }, { name: 'Gukbap (국밥)', desc: 'Hot soup with rice', tag: 'Gukbap' }, { name: 'Fried Rice (볶음밥)', desc: 'Stir-fried rice', tag: 'Fried Rice' }] },
+        'noodle': { label: 'Noodles (면)', items: [{ name: 'Naengmyeon (냉면)', desc: 'Cold buckwheat noodles', tag: 'Naengmyeon' }, { name: 'Jajangmyeon (짜장면)', desc: 'Noodles in black bean sauce', tag: 'Jajangmyeon' }, { name: 'Kalguksu (칼국수)', desc: 'Hand-cut noodle soup', tag: 'Kalguksu' }, { name: 'Ramyeon (라면)', desc: 'Spicy instant noodles', tag: 'Ramyeon' }] },
+        'soup': { label: 'Soup (국/탕)', items: [{ name: 'Kimchi Stew (김치찌개)', desc: 'Spicy stew with kimchi', tag: 'Kimchi Stew' }, { name: 'Samgyetang (삼계탕)', desc: 'Ginseng chicken soup', tag: 'Samgyetang' }, { name: 'Sundae-guk (순대국)', desc: 'Blood sausage soup', tag: 'Sundae-guk' }, { name: 'Gamjatang (감자탕)', desc: 'Pork bone soup', tag: 'Gamjatang' }] },
+        'bbq': { label: 'BBQ (구이)', items: [{ name: 'Samgyeopsal (삼겹살)', desc: 'Grilled pork belly', tag: 'Samgyeopsal' }, { name: 'Galbi (갈비)', desc: 'Grilled ribs', tag: 'Galbi' }, { name: 'Bulgogi (불고기)', desc: 'Marinated beef', tag: 'Bulgogi' }] },
+        'street': { label: 'Street (분식)', items: [{ name: 'Tteokbokki (떡볶이)', desc: 'Spicy rice cakes', tag: 'Tteokbokki' }, { name: 'Sundae (순대)', desc: 'Korean blood sausage', tag: 'Sundae' }, { name: 'Gimbap (김밥)', desc: 'Seaweed rice rolls', tag: 'Gimbap' }] }
     },
-    'noodle': {
-        label: 'Noodles (면)',
-        items: [
-            { name: 'Naengmyeon (냉면)', desc: 'Cold buckwheat noodles', tag: 'Naengmyeon' },
-            { name: 'Jajangmyeon (짜장면)', desc: 'Noodles in black bean sauce', tag: 'Jajangmyeon' },
-            { name: 'Kalguksu (칼국수)', desc: 'Hand-cut noodle soup', tag: 'Kalguksu' },
-            { name: 'Ramyeon (라면)', desc: 'Spicy instant noodles', tag: 'Ramyeon' }
-        ]
-    },
-    'soup': {
-        label: 'Soup (국/탕)',
-        items: [
-            { name: 'Kimchi Stew (김치찌개)', desc: 'Spicy stew with kimchi', tag: 'Kimchi Stew' },
-            { name: 'Samgyetang (삼계탕)', desc: 'Ginseng chicken soup', tag: 'Samgyetang' },
-            { name: 'Sundae-guk (순대국)', desc: 'Blood sausage soup', tag: 'Sundae-guk' },
-            { name: 'Gamjatang (감자탕)', desc: 'Pork bone soup', tag: 'Gamjatang' }
-        ]
-    },
-    'bbq': {
-        label: 'BBQ (구이)',
-        items: [
-            { name: 'Samgyeopsal (삼겹살)', desc: 'Grilled pork belly', tag: 'Samgyeopsal' },
-            { name: 'Galbi (갈비)', desc: 'Grilled ribs', tag: 'Galbi' },
-            { name: 'Bulgogi (불고기)', desc: 'Marinated beef', tag: 'Bulgogi' }
-        ]
-    },
-    'street': {
-        label: 'Street (분식)',
-        items: [
-            { name: 'Tteokbokki (떡볶이)', desc: 'Spicy rice cakes', tag: 'Tteokbokki' },
-            { name: 'Sundae (순대)', desc: 'Korean blood sausage', tag: 'Sundae' },
-            { name: 'Gimbap (김밥)', desc: 'Seaweed rice rolls', tag: 'Gimbap' }
-        ]
-    }
+    'cafe': { 'coffee': { label: 'Coffee', items: [{ name: 'Coffee', desc: '아메리카노, 라떼 등', tag: 'coffee' }] }, 'tea': { label: 'Traditional Tea', items: [{ name: 'Traditional Tea', desc: '쌍화차, 오미자차 등', tag: 'traditional tea' }] }, 'dessert': { label: 'Dessert', items: [{ name: 'Dessert', desc: '마카롱, 케이크, 빙수 등', tag: '디저트' }] }, 'bakery': { label: 'Bakery', items: [{ name: 'Bakery', desc: '갓 구운 빵과 샌드위치', tag: '베이커리' }] } },
+    'activity': { 'indoor': { label: 'Indoor', items: [{ name: 'Indoor Activity', desc: '실내 스포츠, 공방, 전시 등', tag: 'indoor' }] }, 'outdoor': { label: 'Outdoor', items: [{ name: 'Outdoor Activity', desc: '놀이공원, 수상레저, 등산 등', tag: 'outdoor' }] } },
+    'stay': { 'hotel': { label: 'Hotel', items: [{ name: 'Hotel', desc: '편안하고 고급스러운 휴식', tag: 'hotel' }] }, 'hanok': { label: 'Hanok', items: [{ name: 'Hanok Stay', desc: '한국 전통 가옥 체험', tag: '한옥' }] }, 'motel': { label: 'Motel', items: [{ name: 'Motel', desc: '합리적인 가격의 숙박', tag: '모텔' }] }, 'guesthouse': { label: 'Guesthouse', items: [{ name: 'Guesthouse', desc: '여행자들과의 만남', tag: '게스트하우스' }] }, 'pension': { label: 'Pension', items: [{ name: 'Pension', desc: '바베큐와 자연 속 휴식', tag: '펜션' }] } },
+    'healing': { 'massage': { label: 'Massage', items: [{ name: 'Massage', desc: '전신, 발 마사지 등', tag: '마사지' }] }, 'templestay': { label: 'Templestay', items: [{ name: 'Templestay', desc: '사찰에서의 힐링 체험', tag: '템플스테이' }] } },
+    'beauty': { 'hair': { label: 'Hair', items: [{ name: 'Hair Salon', desc: '컷, 펌, 염색 등', tag: '헤어' }] }, 'makeup': { label: 'Makeup', items: [{ name: 'Makeup', desc: '전문가의 메이크업', tag: '메이크업' }] }, 'fashion': { label: 'Fashion Style', items: [{ name: 'Fashion Styling', desc: '퍼스널 쇼퍼, 스타일링', tag: '패션스타일' }] }, 'personal': { label: 'Personal Color', items: [{ name: 'Personal Color', desc: '나에게 맞는 컬러 진단', tag: '퍼스널컬러' }] } },
+    'shopping': { 'taxfree': { label: 'Tax Free', items: [{ name: 'Tax Free Shop', desc: '외국인 면세 쇼핑', tag: 'tax free' }] }, 'mart': { label: 'Mart', items: [{ name: 'Hyper Market', desc: '대형 마트 및 식료품', tag: 'mart' }] }, 'glasses': { label: 'Glasses', items: [{ name: 'Optical Shop', desc: '빠른 맞춤 안경 및 렌즈', tag: '안경' }] }, 'cloth': { label: 'Cloth', items: [{ name: 'Clothing Store', desc: '트렌디한 K-패션', tag: 'cloth' }] }, 'shoes': { label: 'Shoes', items: [{ name: 'Shoe Store', desc: '스니커즈, 구두 등', tag: 'shoes' }] } }
 };
 
-function openFoodMenuModal() {
-    const modal = document.getElementById('modal-food-menu');
-    const tabsContainer = document.getElementById('food-tabs');
-    
-    tabsContainer.innerHTML = Object.keys(foodData).map(key => `
-        <button onclick="switchFoodTab('${key}')" class="food-tab-btn" id="tab-${key}" style="padding: 15px 10px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: bold; color: #888; cursor: pointer; margin-right: 10px;">
-            ${foodData[key].label}
-        </button>
-    `).join('');
-
+function openCategoryModal(category) {
+    const catData = categoryMenuData[category];
+    if (!catData) { applyCategoryFilter(category); return; }
+    const modal = document.getElementById('modal-category-menu');
+    const titleEl = document.getElementById('category-modal-title');
+    const tabsContainer = document.getElementById('category-tabs');
+    if (!modal || !titleEl || !tabsContainer) return;
+    const categoryIcons = { 'food': 'utensils', 'cafe': 'coffee', 'activity': 'ticket', 'stay': 'bed', 'healing': 'leaf', 'beauty': 'scissors', 'shopping': 'shopping-bag' };
+    titleEl.innerHTML = `<i data-lucide="${categoryIcons[category] || 'layers'}" style="width:20px; vertical-align:middle; margin-right:6px; color:var(--primary);"></i><span style="vertical-align:middle;">${category.charAt(0).toUpperCase() + category.slice(1)}</span>`;
+    tabsContainer.innerHTML = Object.keys(catData).map(key => `<button onclick="switchCategoryTab('${category}', '${key}')" class="category-tab-btn" id="tab-${key}" style="padding: 15px 10px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: bold; color: #888; cursor: pointer; margin-right: 10px;">${catData[key].label}</button>`).join('');
     modal.style.display = 'flex';
-    switchFoodTab('rice'); // Default tab
+    const firstKey = Object.keys(catData)[0];
+    if (firstKey) switchCategoryTab(category, firstKey);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-function switchFoodTab(key) {
-    document.querySelectorAll('.food-tab-btn').forEach(btn => { btn.style.borderBottomColor = 'transparent'; btn.style.color = '#888'; });
+function switchCategoryTab(category, key) {
+    document.querySelectorAll('.category-tab-btn').forEach(btn => { btn.style.borderBottomColor = 'transparent'; btn.style.color = '#888'; });
     const activeBtn = document.getElementById(`tab-${key}`);
-    if(activeBtn) { activeBtn.style.borderBottomColor = '#3b82f6'; activeBtn.style.color = '#3b82f6'; }
-
-    const contentContainer = document.getElementById('food-content');
-    const items = foodData[key].items || [];
-    
+    if (activeBtn) { activeBtn.style.borderBottomColor = '#3b82f6'; activeBtn.style.color = '#3b82f6'; }
+    const contentContainer = document.getElementById('category-content');
+    const data = categoryMenuData[category] && categoryMenuData[category][key];
+    const items = (data && data.items) || [];
     contentContainer.innerHTML = items.map(item => `
-        <div onclick="selectFoodItem('${item.tag}')" style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer;">
-            <div style="width: 60px; height: 60px; background: #eee; border-radius: 8px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#ccc;"><i data-lucide="utensils"></i></div>
-            <div>
-                <div style="font-weight: bold; font-size: 16px;">${item.name}</div>
-                <div style="font-size: 13px; color: #666; margin-top: 4px;">${item.desc}</div>
-            </div>
+        <div onclick="selectCategoryItem('${category}', '${String(item.tag).replace(/'/g, "\\'")}')" style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); cursor: pointer;">
+            <div style="width: 60px; height: 60px; background: #eee; border-radius: 8px; flex-shrink: 0; display:flex; align-items:center; justify-content:center; color:#ccc;"><i data-lucide="check-circle"></i></div>
+            <div><div style="font-weight: bold; font-size: 16px;">${item.name}</div><div style="font-size: 13px; color: #666; margin-top: 4px;">${item.desc}</div></div>
         </div>
-    `).join('') + `
-        <button onclick="selectFoodItem('${key}')" style="width: 100%; padding: 15px; background: #e0f2fe; color: #0284c7; border: none; border-radius: 12px; font-weight: bold; margin-top: 10px; cursor: pointer;">
-            View All ${foodData[key].label}
-        </button>
-    `;
-    if(typeof lucide !== 'undefined') lucide.createIcons();
+    `).join('') + (data ? `<button onclick="selectCategoryItem('${category}', '${key}')" style="width: 100%; padding: 15px; background: #e0f2fe; color: #0284c7; border: none; border-radius: 12px; font-weight: bold; margin-top: 10px; cursor: pointer;">View All ${data.label}</button>` : '');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-function selectFoodItem(tag) {
-    closeModal('modal-food-menu');
-    applyCategoryFilter('food', tag);
+function selectCategoryItem(category, tag) {
+    closeModal('modal-category-menu');
+    applyCategoryFilter(category, tag);
+}
+
+function findMyLocation() {
+    if (!navigator.geolocation) return alert("GPS 지원 불가");
+    navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        if (map) {
+            map.flyTo([latitude, longitude], 15);
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.circleMarker([latitude, longitude], { radius: 8, fillColor: "#3b82f6", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
+            getAddressFromCoords(latitude, longitude);
+        }
+    }, () => alert("위치 권한 필요"), { enableHighAccuracy: true });
+}
+
+async function getAddressFromCoords(lat, lng) {
+    try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data && data.display_name) {
+            const addrElement = document.getElementById('current-addr');
+            if (addrElement) addrElement.innerText = data.display_name;
+        }
+    } catch (e) { console.error("주소 변환 실패:", e); }
 }
 
 /* ==========================================================
@@ -625,7 +601,7 @@ function closeSideMenu() {
 }
 
 window.onclick = function(event) {
-    const modals = ['qr-modal', 'lang-modal', 'modal-todo', 'modal-fav', 'modal-sched', 'modal-edit-popup', 'modal-detail', 'modal-bill', 'modal-reset-pw', 'modal-onboarding-reminder', 'modal-food-menu'];
+    const modals = ['qr-modal', 'lang-modal', 'modal-todo', 'modal-fav', 'modal-sched', 'modal-edit-popup', 'modal-detail', 'modal-bill', 'modal-reset-pw', 'modal-onboarding-reminder', 'modal-category-menu'];
     modals.forEach(id => {
         const m = document.getElementById(id);
         if (m && event.target === m) m.style.display = "none";
@@ -647,38 +623,6 @@ function openQRModal() {
 }
 
 function openLangModal() { document.getElementById('lang-modal').style.display = 'flex'; }
-
-function findMyLocation() {
-    if (!navigator.geolocation) return alert("GPS 지원 불가");
-    navigator.geolocation.getCurrentPosition((position) => {
-        const { latitude, longitude } = position.coords;
-        if (map) {
-            map.flyTo([latitude, longitude], 15);
-            if (userMarker) map.removeLayer(userMarker);
-            userMarker = L.circleMarker([latitude, longitude], { radius: 8, fillColor: "#3b82f6", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
-            
-            // [추가] 좌표를 주소로 변환 (Reverse Geocoding)
-            getAddressFromCoords(latitude, longitude);
-        }
-    }, (error) => alert("위치 권한 필요"), { enableHighAccuracy: true });
-}
-
-async function getAddressFromCoords(lat, lng) {
-    try {
-        // OpenStreetMap의 무료 주소 변환 API (Nominatim) 호출
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data && data.display_name) {
-            const addrElement = document.getElementById('current-addr');
-            if (addrElement) addrElement.innerText = data.display_name;
-            console.log("📍 주소 변환 성공:", data.display_name);
-        }
-    } catch (e) {
-        console.error("주소 변환 실패:", e);
-    }
-}
 
 /* ==========================================================
    [신규] 결제 및 멤버십 관리 로직
@@ -1251,37 +1195,6 @@ function checkTableNum() {
     document.getElementById('floatTableNum').innerText = currentTable;
     renderOrderMenu();
     navigateTo('order-menu');
-}
-
-function renderRecList(category, subCat = null) {
-    const list = document.getElementById('rec-list-container');
-    if (!list) return; 
-    let filtered = (category === 'all' || !category) 
-        ? recData 
-        : recData.filter(item => (item.cat || '').toLowerCase() === category.toLowerCase());
-
-    if (subCat) {
-        filtered = filtered.filter(item => 
-            (item.tags || []).some(t => t.toLowerCase().includes(subCat.toLowerCase()))
-        );
-    }
-
-    list.innerHTML = filtered.map(item => `
-        <div class="list-item" onclick="openDetailModal('${item.id}')">
-            <div class="img-box" style="width: 80px; height: 80px; border-radius: 12px; overflow: hidden; margin-right: 15px; flex-shrink: 0;">
-                <img src="${item.img || 'https://via.placeholder.com/80'}" style="width: 100%; height: 100%; object-fit: cover;">
-            </div>
-            <div class="list-content">
-                <div class="item-title" style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">
-                    ${item.title} <span style="color: ${item.status === 'red' ? '#ff4d4f' : item.status === 'yellow' ? '#faad14' : '#52c41a'};">●</span>
-                </div>
-                <div class="item-desc" style="font-size: 13px; color: #666; margin-bottom: 4px;">${item.desc || ''}</div>
-                <div class="item-tags">
-                    ${(item.tags || []).map(t => `<span class="tag" style="background:#f0f0f0; padding:2px 6px; border-radius:4px; font-size:11px; margin-right:4px;">#${t}</span>`).join('')}
-                </div>
-            </div>
-        </div>
-    `).join('');
 }
 
 function renderOrderMenu() {
